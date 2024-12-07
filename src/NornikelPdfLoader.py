@@ -38,7 +38,7 @@ class NornikelPdfLoader(BaseLoader):
                 base64_str = f"data:image/jpeg;base64,{base64_data}"
                 # Добавляем в список документов
                 ret_docs.append(Document("<IMG>", metadata=metadata 
-                                         #| {"image_base64": base64_str}
+                                         | {"image_base64": base64_str}
                                          ))
             return ret_docs
 
