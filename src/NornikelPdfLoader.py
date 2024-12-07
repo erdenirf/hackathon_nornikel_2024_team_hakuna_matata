@@ -25,8 +25,9 @@ class NornikelPdfLoader(BaseLoader):
 
         def load_images_from_page(page) -> list[Document]:
             import base64
+            from pathlib import Path
             metadata = {
-                "source": self.file_path,
+                "source": Path(self.file_path).name,
                 "page": page.page_number,
                 "type": "image",
             } | self.parser.metadata
@@ -44,8 +45,9 @@ class NornikelPdfLoader(BaseLoader):
             return ret_docs
 
         def extract_texts_from_page(page) -> list[Document]:
+            from pathlib import Path
             metadata = {
-                "source": self.file_path,
+                "source": Path(self.file_path).name,
                 "page": page.page_number,
                 "type": "text",
             } | self.parser.metadata
