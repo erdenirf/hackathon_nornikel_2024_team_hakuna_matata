@@ -116,7 +116,7 @@ async def cmd_del_indexed(message: types.Message):
 @dp.message(F.text)
 async def handle_text(message: types.Message):
     results = ensemble_retriever.invoke(message.text)
-    texts = [f"{result.metadata['source']}/{result.metadata['page']}/{result.page_content}" for result in results]
+    texts = [f"{result.metadata['source']}/{result.metadata['page']}/{result.page_content}" for result in results if result.metadata['type'] == 'text']
     images = [result.metadata['image_base64'] for result in results if result.metadata['type'] == 'image']
     
     for image in images:
@@ -175,7 +175,7 @@ async def handle_text(message: types.Message):
     content = as_list(
         as_marked_section(
             Bold("Multi-modal RAG context:"),
-            *texts[:4],
+            *texts[:5],
             marker="🔎 ",
         ),
         as_marked_section(
