@@ -131,25 +131,61 @@ class ColQwen2Embeddings(Embeddings, BaseModel):
             ),
         )
     
-    def embed_query(self, text: str) -> list[float]:
+    try:
+        from PIL import Image
+    except ImportError:
+        raise ImportError(
+            "PIL package not found, please install it with `pip install Pillow`"
+        )
+
+    def embed_query(self, text: str | Image.Image) -> list[float]:
         return self.embed_documents([text])[0]
 
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        batch_queries = self.processor_retrieval.process_queries(texts).to(self.model.device)
+    def embed_documents(self, texts: list[str | Image.Image]) -> list[list[float]]:
+        from PIL import Image
+
+        texts2 = [text for text in texts if not isinstance(text, Image.Image)]
+        images = [text for text in texts if isinstance(text, Image.Image)]
+
+        if len(texts2) > 0:
+            batch_queries = self.processor_retrieval.process_queries(texts2).to(self.model.device)
+        else:
+            batch_queries = None
+        if len(images) > 0:
+            batch_images = self.processor_retrieval.process_images(images).to(self.model.device)
+        else:
+            batch_images = None
 
         # Forward pass
         self.model.enable_retrieval()
         import torch
 
         with torch.no_grad():
-            query_embeddings = self.model.forward(**batch_queries)
-            # Convert to float32 and take mean over sequence length
-            query_embeddings = query_embeddings.float()
-            query_embeddings = torch.mean(query_embeddings, dim=1)  # Now shape is [1, 128]
-            # Normalize the embeddings
-            query_embeddings = torch.nn.functional.normalize(query_embeddings, p=2, dim=-1)
+            if batch_queries is not None:
+                query_embeddings = self.model.forward(**batch_queries)
+                # Convert to float32 and take mean over sequence length
+                query_embeddings = query_embeddings.float()
+                query_embeddings = torch.mean(query_embeddings, dim=1)  # Now shape is [1, 128]
+                # Normalize the embeddings
+                query_embeddings = torch.nn.functional.normalize(query_embeddings, p=2, dim=-1)
+                ret_query_embeddings = query_embeddings.cpu().numpy().tolist()
+            else:
+                ret_query_embeddings = []
 
-        return query_embeddings.cpu().numpy().tolist()
+            if batch_images is not None:
+                #image embeddings
+                image_embeddings = self.model.forward(**batch_images)
+                # Convert to float32
+                image_embeddings = image_embeddings.float()
+                # Take mean over sequence length
+                image_embeddings = torch.mean(image_embeddings, dim=1)  # Now shape should be [batch_size, 128]
+                # Normalize embeddings
+                image_embeddings = torch.nn.functional.normalize(image_embeddings, p=2, dim=-1)
+                ret_image_embeddings = image_embeddings.cpu().numpy().tolist()
+            else:
+                ret_image_embeddings = []
+
+        return ret_query_embeddings + ret_image_embeddings
 
     try:
         from PIL import Image
