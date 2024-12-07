@@ -3,9 +3,15 @@ import logging
 from aiogram import F, Bot, Dispatcher, types
 from aiogram.filters.command import Command
 from config_reader import config
+from src.ColQwen2Embeddings import ColQwen2Embeddings
 
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
+
+logging.info("Loading embeddings")
+embeddings = ColQwen2Embeddings()
+logging.info("Embeddings loaded")
+
 # Объект бота
 bot = Bot(token=config.bot_token.get_secret_value())
 # Диспетчер
