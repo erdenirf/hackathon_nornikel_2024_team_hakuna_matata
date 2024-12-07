@@ -3,24 +3,22 @@ from dataset import eval_dataset
 
 from ragas import evaluate
 from ragas.run_config import RunConfig
-from ragas.metrics import (ResponseRelevancy, Faithfulness,
-                           ContextPrecision, ContextRecall,
+from ragas.metrics import (Faithfulness,
+                           LLMContextPrecisionWithReference, LLMContextRecall,
                            MultiModalFaithfulness, MultiModalRelevance)
 
 #single
-response_relevancy = ResponseRelevancy(llm=eval_llm, embeddings=embeddings)
-faithfulness = Faithfulness(llm=eval_llm, embeddings=embeddings)
-context_precision = ContextPrecision(llm=eval_llm, embeddings=embeddings)
-context_recall = ContextRecall(llm=eval_llm, embeddings=embeddings)
+faithfulness = Faithfulness(llm=eval_llm)
+context_precision = LLMContextPrecisionWithReference(llm=eval_llm)
+context_recall = LLMContextRecall(llm=eval_llm)
 
 #multimodal
-mm_faithfulness = MultiModalFaithfulness(llm=eval_llm, embeddings=embeddings)
-mm_relevance = MultiModalRelevance(llm=eval_llm, embeddings=embeddings)
+mm_faithfulness = MultiModalFaithfulness(llm=eval_llm)
+mm_relevance = MultiModalRelevance(llm=eval_llm)
 
 score = evaluate(
     eval_dataset,
     metrics=[
-        response_relevancy,
         faithfulness,
         context_precision,
         context_recall 

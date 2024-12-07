@@ -4,7 +4,6 @@ from utils import ModelType, SpecialTokens
 
 from langchain_community.llms.vllm import VLLMOpenAI
 from ragas.llms.base import LangchainLLMWrapper
-from ragas.embeddings.base import LangchainEmbeddingsWrapper
 
 st = SpecialTokens(ModelType.qwen2)
 
@@ -19,8 +18,4 @@ evaluator_llm = VLLMOpenAI(
     openai_api_base=os.environ(["API_URL"])
 )
 evaluator_llm = evaluator_llm.bind(stop=[st.eot])
-
-encoder = ...
-
-embeddings = LangchainEmbeddingsWrapper(encoder)
 eval_llm = LangchainLLMWrapper(evaluator_llm)
