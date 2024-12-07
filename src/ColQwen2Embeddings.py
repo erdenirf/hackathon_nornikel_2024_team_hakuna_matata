@@ -140,8 +140,11 @@ class ColQwen2Embeddings(Embeddings, BaseModel):
 
         with torch.no_grad():
             query_embeddings = self.model.forward(**batch_queries)
-            # Преобразуем в float32 перед конвертацией в numpy
+            # Convert to float32 and take mean over sequence length
             query_embeddings = query_embeddings.float()
+            query_embeddings = torch.mean(query_embeddings, dim=1)  # Now shape is [1, 128]
+            # Normalize the embeddings
+            query_embeddings = torch.nn.functional.normalize(query_embeddings, p=2, dim=-1)
 
         return query_embeddings[0].cpu().numpy().tolist()
 
@@ -165,7 +168,11 @@ class ColQwen2Embeddings(Embeddings, BaseModel):
 
         with torch.no_grad():
             image_embeddings = self.model.forward(**batch_images)
-            # Преобразуем в float32 перед конвертацией в numpy
+            # Convert to float32
             image_embeddings = image_embeddings.float()
+            # Take mean over sequence length
+            image_embeddings = torch.mean(image_embeddings, dim=1)  # Now shape should be [batch_size, 128]
+            # Normalize embeddings
+            image_embeddings = torch.nn.functional.normalize(image_embeddings, p=2, dim=-1)
 
         return image_embeddings.cpu().numpy().tolist()
