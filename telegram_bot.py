@@ -76,7 +76,8 @@ async def cmd_start(message: types.Message):
                         "Используйте команды:\n"
                         "/upload_pdf - для загрузки документа\n"
                         "/list_indexed - для просмотра списка документов\n"
-                        "/del_indexed - для удаления документа")
+                        "/del_indexed - для удаления документа.\n\n"
+                        "Отправьте поисковое сообщение для получения ответа от ИИ с учетом контекста документа.")
 
 # Хэндлер на команду /list_indexed
 @dp.message(Command("list_indexed"))
@@ -90,7 +91,7 @@ async def cmd_list_indexed(message: types.Message):
 # Хэндлер на команду /upload_pdf
 @dp.message(Command("upload_pdf"))
 async def cmd_upload_pdf(message: types.Message):
-    await message.answer("Пожалуйста, отправьте PDF файл для загрузки")
+    await message.answer("Пожалуйста, отправьте PDF файл для загрузки (в разработке)")
 
 # Хэндлер на получение PDF файла
 @dp.message(F.document)
@@ -114,23 +115,21 @@ async def handle_text(message: types.Message):
     texts = [f"{result.metadata['source']}/{result.metadata['page']}/{result.page_content}" for result in results]
     content = as_list(
         as_marked_section(
-            Bold("RAG Context:"),
+            Bold("Multi-modal RAG context:"),
             *texts,
-            marker="✅ ",
+            marker="🔎 ",
         ),
         as_marked_section(
-            Bold("Failed:"),
-            "Test 2",
-            marker="❌ ",
+            Bold("Total:"),
+            f"{len(texts)}",
+            marker="🧮 ",
         ),
         as_marked_section(
-            Bold("Summary:"),
-            as_key_value("Total", 4),
-            as_key_value("Success", 3),
-            as_key_value("Failed", 1),
+            Bold("LLM answer (Qwen):"),
+            "...",
             marker="  ",
         ),
-        HashTag("#test"),
+        HashTag("#nornikel_bot"),
         sep="\n\n",
     )
     await message.answer(**content.as_kwargs())
