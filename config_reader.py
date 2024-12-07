@@ -6,10 +6,10 @@ from pydantic import SecretStr
 class Settings(BaseSettings):
     # Желательно вместо str использовать SecretStr 
     # для конфиденциальных данных, например, токена бота
-    bot_token: SecretStr
-    qdrant_api_key: SecretStr
-    qdrant_url: SecretStr
-    qdrant_collection_name: SecretStr
+    BOT_TOKEN: SecretStr
+    QDRANT_API_KEY: SecretStr
+    QDRANT_URL: SecretStr
+    QDRANT_COLLECTION_NAME: SecretStr
 
     # Начиная со второй версии pydantic, настройки класса настроек задаются
     # через model_config

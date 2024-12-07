@@ -4,6 +4,7 @@ from aiogram import F, Bot, Dispatcher, types
 from aiogram.filters.command import Command
 from config_reader import config
 from src.ColQwen2Embeddings import ColQwen2Embeddings
+from langchain_qdrant import QdrantVectorStore
 
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
@@ -12,8 +13,15 @@ logging.info("Loading embeddings")
 embeddings = ColQwen2Embeddings()
 logging.info("Embeddings loaded")
 
+qdrant = QdrantVectorStore.from_existing_collection(
+    embedding=embeddings,
+    collection_name=config.QDRANT_COLLECTION_NAME.get_secret_value(),
+    url=config.QDRANT_URL.get_secret_value(),
+    api_key=config.QDRANT_API_KEY.get_secret_value()
+)
+
 # Объект бота
-bot = Bot(token=config.bot_token.get_secret_value())
+bot = Bot(token=config.BOT_TOKEN.get_secret_value())
 # Диспетчер
 dp = Dispatcher()
 
