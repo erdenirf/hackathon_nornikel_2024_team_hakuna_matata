@@ -5,6 +5,11 @@ from aiogram.filters.command import Command
 from config_reader import config
 from src.ColQwen2Embeddings import ColQwen2Embeddings
 from langchain_qdrant import QdrantVectorStore
+from qdrant_client import models
+from langchain.retrievers.ensemble import EnsembleRetriever
+from aiogram.utils.formatting import (
+    Bold, as_list, as_marked_section, as_key_value, HashTag
+)
 
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +24,37 @@ qdrant = QdrantVectorStore.from_existing_collection(
     url=config.QDRANT_URL.get_secret_value(),
     api_key=config.QDRANT_API_KEY.get_secret_value()
 )
+
+retriever_text = qdrant.as_retriever(search_type="mmr", 
+                                search_kwargs={"k": 5,
+    "filter": models.Filter(
+        should=[
+            models.FieldCondition(
+                key="metadata.type",
+                match=models.MatchValue(
+                    value="text"
+                ),
+            ),
+        ]
+    )
+})
+
+retriever_image = qdrant.as_retriever(search_type="mmr", 
+                                search_kwargs={"k": 5,
+    "filter": models.Filter(
+        should=[
+            models.FieldCondition(
+                key="metadata.type",
+                match=models.MatchValue(
+                    value="image"
+                ),
+            ),
+        ]
+    )
+})
+
+ensemble_retriever = EnsembleRetriever(retrievers=[retriever_text, retriever_image],
+                                      weights=[0.5, 0.5])
 
 # Объект бота
 bot = Bot(token=config.BOT_TOKEN.get_secret_value())
@@ -74,8 +110,30 @@ async def cmd_del_indexed(message: types.Message):
 # Заменяем общий хэндлер на текстовые сообщения
 @dp.message(F.text)
 async def handle_text(message: types.Message):
-    await message.answer("Используйте команды бота для взаимодействия.\n"
-                        "Отправьте /start для получения списка команд.")
+    results = ensemble_retriever.invoke(message.text)
+    texts = [f"{result.metadata['source']}/{result.metadata['page']}/{result.page_content}" for result in results]
+    content = as_list(
+        as_marked_section(
+            Bold("RAG Context:"),
+            *texts,
+            marker="✅ ",
+        ),
+        as_marked_section(
+            Bold("Failed:"),
+            "Test 2",
+            marker="❌ ",
+        ),
+        as_marked_section(
+            Bold("Summary:"),
+            as_key_value("Total", 4),
+            as_key_value("Success", 3),
+            as_key_value("Failed", 1),
+            marker="  ",
+        ),
+        HashTag("#test"),
+        sep="\n\n",
+    )
+    await message.answer(**content.as_kwargs())
 
 # Запуск процесса поллинга новых апдейтов
 async def main():
