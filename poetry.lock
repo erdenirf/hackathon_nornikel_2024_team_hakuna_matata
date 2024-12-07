@@ -649,21 +649,6 @@ tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<10.0.0"
 typing-extensions = ">=4.7"
 
 [[package]]
-name = "langchain-ollama"
-version = "0.2.1"
-description = "An integration package connecting Ollama and LangChain"
-optional = false
-python-versions = "<4.0,>=3.9"
-files = [
-    {file = "langchain_ollama-0.2.1-py3-none-any.whl", hash = "sha256:033916150cc9c341d72274512b9987a0ebf014cf808237687012fc7af4a81ee3"},
-    {file = "langchain_ollama-0.2.1.tar.gz", hash = "sha256:752b112d233a6e079259cb10138a5af836f42d26781cac6d7eb1b1e0d2ae9a0d"},
-]
-
-[package.dependencies]
-langchain-core = ">=0.3.20,<0.4.0"
-ollama = ">=0.3.0,<1"
-
-[[package]]
 name = "langchain-qdrant"
 version = "0.2.0"
 description = "An integration package connecting Qdrant and LangChain"
@@ -1025,21 +1010,6 @@ files = [
     {file = "nvidia_nvtx_cu12-12.4.127-py3-none-manylinux2014_x86_64.whl", hash = "sha256:781e950d9b9f60d8241ccea575b32f5105a5baf4c2351cab5256a24869f12a1a"},
     {file = "nvidia_nvtx_cu12-12.4.127-py3-none-win_amd64.whl", hash = "sha256:641dccaaa1139f3ffb0d3164b4b84f9d253397e38246a4f2f36728b48566d485"},
 ]
-
-[[package]]
-name = "ollama"
-version = "0.4.3"
-description = "The official Python client for Ollama."
-optional = false
-python-versions = "<4.0,>=3.8"
-files = [
-    {file = "ollama-0.4.3-py3-none-any.whl", hash = "sha256:4c06c6b4cd7df346a382e157f696ba53eb9ee2cc94db85a4f7d530b9acb9dba2"},
-    {file = "ollama-0.4.3.tar.gz", hash = "sha256:7b294051b2144be5d6ad4f0d033880f66b95a9377f4b40d8512e2974ca4001ef"},
-]
-
-[package.dependencies]
-httpx = ">=0.27.0,<0.28.0"
-pydantic = ">=2.9.0,<3.0.0"
 
 [[package]]
 name = "orjson"
@@ -2161,4 +2131,4 @@ zstd = ["zstandard (>=0.18.0)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "d589aef4fadcac9e6d675fbd18160080f54c5613d16e0ab3c11cc7417806e64e"
+content-hash = "768adbd8619b27ff5b29f95354d3bd3c7e423a4d15d7c49f5e78c6c0eef06621"
