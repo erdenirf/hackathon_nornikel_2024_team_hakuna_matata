@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import PIL
 from aiogram import F, Bot, Dispatcher, types
 from aiogram.filters.command import Command
 from config_reader import config
@@ -120,25 +121,53 @@ async def handle_text(message: types.Message):
     
     for image in images:
         try:
+            # Логируем начало строки base64 для отладки
+            logging.debug(f"Base64 string preview: {image[:50]}...")
+            
+            # Очистка строки base64 от возможного префикса данных
+            if ',' in image:
+                image = image.split(',')[1]
+            
+            # Добавляем padding если необходимо
+            padding = 4 - (len(image) % 4) if len(image) % 4 else 0
+            image = image + ('=' * padding)
+            
+            # Декодируем base64 в бинарные данные
             img_data = base64.b64decode(image)
+            
+            # Проверяем на пустые данные
+            if len(img_data) == 0:
+                logging.error("Получены пустые данные изображения")
+                continue
+            
+            # Создаем объект BytesIO для работы с бинарными данными
             bio = BytesIO(img_data)
+            bio.seek(0)
             
-            # Open and validate the image using PIL
+            # Открываем и обрабатываем изображение
             img = Image.open(bio)
-            img = img.convert('RGB')  # Convert to RGB format
+            img = img.convert('RGB')  # Конвертируем в RGB формат
             
-            # Save the processed image to a new BytesIO
+            # Сохраняем обработанное изображение
             output_bio = BytesIO()
             img.save(output_bio, format='JPEG', quality=95)
             output_bio.seek(0)
             
+            # Отправляем изображение в чат
             await message.answer_photo(
                 types.BufferedInputFile(
                     output_bio.getvalue(),
                     filename="image.jpg"
                 ),
-                caption="Изображение"
+                caption="Изображение из контекста"
             )
+            
+        except base64.binascii.Error as e:
+            logging.error(f"Ошибка декодирования base64: {e}", exc_info=True)
+            continue
+        except PIL.UnidentifiedImageError as e:
+            logging.error(f"Неподдерживаемый формат изображения: {e}", exc_info=True)
+            continue
         except Exception as e:
             logging.error(f"Ошибка при обработке изображения: {e}", exc_info=True)
             continue
