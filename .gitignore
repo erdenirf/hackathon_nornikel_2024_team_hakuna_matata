@@ -1,3 +1,4 @@
 data/
 notebooks/
 *.pyc
+.env

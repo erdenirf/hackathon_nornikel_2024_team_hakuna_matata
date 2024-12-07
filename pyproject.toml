@@ -12,6 +12,8 @@ pypdf = "^5.1.0"
 langchain-core = "^0.3.22"
 langchain-text-splitters = "^0.3.2"
 langchain-qdrant = "^0.2.0"
+aiogram = "^3.15.0"
+pydantic-settings = "^2.6.1"
 
 [tool.poetry.dev-dependencies]
 
