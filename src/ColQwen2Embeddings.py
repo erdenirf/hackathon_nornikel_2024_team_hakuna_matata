@@ -132,7 +132,10 @@ class ColQwen2Embeddings(Embeddings, BaseModel):
         )
     
     def embed_query(self, text: str) -> list[float]:
-        batch_queries = self.processor_retrieval.process_queries([text]).to(self.model.device)
+        return self.embed_documents([text])[0]
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        batch_queries = self.processor_retrieval.process_queries(texts).to(self.model.device)
 
         # Forward pass
         self.model.enable_retrieval()
@@ -146,10 +149,7 @@ class ColQwen2Embeddings(Embeddings, BaseModel):
             # Normalize the embeddings
             query_embeddings = torch.nn.functional.normalize(query_embeddings, p=2, dim=-1)
 
-        return query_embeddings[0].cpu().numpy().tolist()
-
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [self.embed_query(text) for text in texts]
+        return query_embeddings.cpu().numpy().tolist()
 
     try:
         from PIL import Image
@@ -157,22 +157,3 @@ class ColQwen2Embeddings(Embeddings, BaseModel):
         raise ImportError(
             "PIL package not found, please install it with `pip install Pillow`"
         )
-    
-    def embed_images(self, images: list[Image.Image]) -> list[list[float]]:
-        # Process the inputs
-        batch_images = self.processor_retrieval.process_images(images).to(self.model.device)
-
-        # Forward pass
-        self.model.enable_retrieval()
-        import torch
-
-        with torch.no_grad():
-            image_embeddings = self.model.forward(**batch_images)
-            # Convert to float32
-            image_embeddings = image_embeddings.float()
-            # Take mean over sequence length
-            image_embeddings = torch.mean(image_embeddings, dim=1)  # Now shape should be [batch_size, 128]
-            # Normalize embeddings
-            image_embeddings = torch.nn.functional.normalize(image_embeddings, p=2, dim=-1)
-
-        return image_embeddings.cpu().numpy().tolist()
