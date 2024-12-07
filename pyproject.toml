@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "hackathon_nornikel_2024_team_hakuna_matata"
+version = "0.1.0"
+description = "Multimodal RAG pipeline with VLM - ColPali"
+authors = ["Erdeni Tsyrendashiev <erdenirf@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+colpali-engine = "0.3.1"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
