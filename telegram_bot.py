@@ -30,7 +30,7 @@ qdrant = QdrantVectorStore.from_existing_collection(
 )
 
 retriever_text = qdrant.as_retriever(search_type="mmr", 
-                                search_kwargs={"k": 5,
+                                search_kwargs={"k": 7,
     "filter": models.Filter(
         should=[
             models.FieldCondition(
@@ -44,7 +44,7 @@ retriever_text = qdrant.as_retriever(search_type="mmr",
 })
 
 retriever_image = qdrant.as_retriever(search_type="mmr", 
-                                search_kwargs={"k": 5,
+                                search_kwargs={"k": 4,
     "filter": models.Filter(
         should=[
             models.FieldCondition(
@@ -115,11 +115,15 @@ async def cmd_del_indexed(message: types.Message):
 # Заменяем общий хэндлер на текстовые сообщения
 @dp.message(F.text)
 async def handle_text(message: types.Message):
-    results = ensemble_retriever.invoke(message.text)
-    texts = [f"{result.metadata['source']}/{result.metadata['page']}/{result.page_content}" for result in results if result.metadata['type'] == 'text']
-    images = [result.metadata['image_base64'] for result in results if result.metadata['type'] == 'image']
+    #results = ensemble_retriever.invoke(message.text)
+    results_text = retriever_text.invoke(message.text)
+    results_image = retriever_image.invoke(message.text)
+
+    texts = [f"{result.metadata['source']}/{result.metadata['page']} стр./{result.page_content}" for result in results_text if result.metadata['type'] == 'text']
+    images = [result.metadata['image_base64'] for result in results_image if result.metadata['type'] == 'image']
+    images_captions = [f"{result.metadata['source']}/{result.metadata['page']} стр." for result in results_image if result.metadata['type'] == 'image']
     
-    for image in images:
+    for index, image in enumerate(images):
         try:
             # Логируем начало строки base64 для отладки
             logging.debug(f"Base64 string preview: {image[:50]}...")
@@ -159,7 +163,7 @@ async def handle_text(message: types.Message):
                     output_bio.getvalue(),
                     filename="image.jpg"
                 ),
-                caption="Изображение из контекста"
+                caption=images_captions[index]
             )
             
         except base64.binascii.Error as e:
@@ -172,21 +176,16 @@ async def handle_text(message: types.Message):
             logging.error(f"Ошибка при обработке изображения: {e}", exc_info=True)
             continue
 
-    content = as_list(
-        as_marked_section(
-            Bold("Multi-modal RAG context:"),
-            *texts[:5],
-            marker="🔎 ",
-        ),
-        as_marked_section(
-            Bold("Показано контекста:"),
-            f"Топ 5 из {len(texts)} всего",
-            marker="🧮 ",
-        ),
-        HashTag("#nornikel_rag"),
-        sep="\n\n",
-    )
-    await message.answer(**content.as_kwargs())
+    for index, text in enumerate(texts):
+        content = as_list(
+            as_marked_section(
+                Bold(f"Multi-modal RAG context [{index+1}]:"),
+                text,
+                marker="🔎 ",
+            ),
+            sep="\n\n",
+        )
+        await message.answer(**content.as_kwargs())
     await message.answer("LLM answer (Qwen): ...")
 
 # Запуск процесса поллинга новых апдейтов

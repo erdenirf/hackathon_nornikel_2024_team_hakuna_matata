@@ -28,11 +28,9 @@ class NornikelPdfLoader(BaseLoader):
             from pathlib import Path
             metadata = {
                 "source": Path(self.file_path).name,
-                "page": page.page_number,
+                "page": page.page_number+1,
                 "type": "image",
-            }
-            if self.parser.metadata is not None:
-                metadata |= self.parser.metadata
+            } | self.parser.metadata
 
             ret_docs: list[Document] = []
             for image in page.images:
@@ -50,11 +48,9 @@ class NornikelPdfLoader(BaseLoader):
             from pathlib import Path
             metadata = {
                 "source": Path(self.file_path).name,
-                "page": page.page_number,
+                "page": page.page_number+1,
                 "type": "text",
-            }
-            if self.parser.metadata is not None:
-                metadata |= self.parser.metadata
+            } | self.parser.metadata
 
             return [Document(page.extract_text(), metadata=metadata)]
 
