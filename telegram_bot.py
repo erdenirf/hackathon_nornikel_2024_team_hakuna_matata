@@ -116,23 +116,19 @@ async def handle_text(message: types.Message):
     content = as_list(
         as_marked_section(
             Bold("Multi-modal RAG context:"),
-            *texts,
+            *texts[:4],
             marker="🔎 ",
         ),
         as_marked_section(
-            Bold("Total:"),
-            f"{len(texts)}",
+            Bold("Показано контекста:"),
+            f"Топ 5 из {len(texts)} всего",
             marker="🧮 ",
         ),
-        as_marked_section(
-            Bold("LLM answer (Qwen):"),
-            "...",
-            marker="  ",
-        ),
-        HashTag("#nornikel_bot"),
+        HashTag("#nornikel_rag"),
         sep="\n\n",
     )
     await message.answer(**content.as_kwargs())
+    await message.answer("LLM answer (Qwen): ...")
 
 # Запуск процесса поллинга новых апдейтов
 async def main():
