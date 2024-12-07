@@ -14,9 +14,15 @@ from aiogram.utils.formatting import (
 import base64
 from io import BytesIO
 from PIL import Image
+from openai import OpenAI
 
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
+
+client = OpenAI(
+    base_url=config.LLM_BASE_URL.get_secret_value(),
+    api_key=config.LLM_API_KEY.get_secret_value(),
+)
 
 logging.info("Loading embeddings")
 embeddings = ColQwen2Embeddings()
@@ -186,7 +192,21 @@ async def handle_text(message: types.Message):
             sep="\n\n",
         )
         await message.answer(**content.as_kwargs())
-    await message.answer("LLM answer (Qwen): ...")
+    
+    rag_context = "\n\n".join(texts)
+    completion = client.chat.completions.create(
+        model="Qwen/Qwen2.5-Coder-32B-Instruct-AWQ",
+        messages=[
+            {"role": "system", "content": """Я - виртуальный ассистент компании «Норникель», созданный для помощи с документами и информацией компании. Я использую мультимодальную RAG-систему для поиска и анализа релевантной информации в корпоративных документах, изображениях и других материалах.
+
+        Я отвечаю на вопросы, основываясь на предоставленном контексте из базы знаний Норникеля. Если информации недостаточно или она отсутствует в контексте, я честно сообщу об этом.
+
+        Мои ответы всегда вежливы, профессиональны и соответствуют корпоративной культуре Норникеля."""},
+            {"role": "system", "content": rag_context},  # Добавляем контекст от RAG как system message
+            {"role": "user", "content": message.text}
+        ]
+        )
+    await message.answer(f"LLM answer (Qwen): {completion.choices[0].message.content}")
 
 # Запуск процесса поллинга новых апдейтов
 async def main():

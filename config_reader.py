@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     QDRANT_API_KEY: SecretStr
     QDRANT_URL: SecretStr
     QDRANT_COLLECTION_NAME: SecretStr
+    LLM_API_KEY: SecretStr
+    LLM_BASE_URL: SecretStr
 
     # Начиная со второй версии pydantic, настройки класса настроек задаются
     # через model_config
