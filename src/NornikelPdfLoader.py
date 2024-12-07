@@ -28,6 +28,7 @@ class NornikelPdfLoader(BaseLoader):
             metadata = {
                 "source": self.file_path,
                 "page": page.page_number,
+                "type": "image",
             } | self.parser.metadata
 
             ret_docs: list[Document] = []
@@ -46,6 +47,7 @@ class NornikelPdfLoader(BaseLoader):
             metadata = {
                 "source": self.file_path,
                 "page": page.page_number,
+                "type": "text",
             } | self.parser.metadata
 
             return [Document(page.extract_text(), metadata=metadata)]
