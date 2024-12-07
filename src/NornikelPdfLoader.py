@@ -23,22 +23,35 @@ class NornikelPdfLoader(BaseLoader):
 
     def load(self) -> list[Document]:
 
-        def extract_text_from_page(page):
+        def load_images_from_page(page) -> list[Document]:
             import base64
             metadata = {
                 "source": self.file_path,
                 "page": page.page_number,
             } | self.parser.metadata
 
-            images_base64 = []
+            ret_docs: list[Document] = []
             for image in page.images:
                 # Конвертируем бинарные данные в base64
                 base64_data = base64.b64encode(image.data).decode('utf-8')
                 # Добавляем в формате data:image/jpeg;base64,{data}
-                images_base64.append(f"data:image/jpeg;base64,{base64_data}")
+                base64_str = f"data:image/jpeg;base64,{base64_data}"
+                # Добавляем в список документов
+                ret_docs.append(Document("<IMG>", metadata=metadata 
+                                         #| {"image_base64": base64_str}
+                                         ))
+            return ret_docs
 
-            metadata["images_base64"] = images_base64
+        def extract_texts_from_page(page) -> list[Document]:
+            metadata = {
+                "source": self.file_path,
+                "page": page.page_number,
+            } | self.parser.metadata
 
-            return Document(page.extract_text(), metadata=metadata)
+            return [Document(page.extract_text(), metadata=metadata)]
 
-        return [extract_text_from_page(page) for page in self.parser.pages]
+        ret_documents: list[Document] = []
+        for page in self.parser.pages:
+            ret_documents.extend(load_images_from_page(page))
+            ret_documents.extend(extract_texts_from_page(page))
+        return ret_documents
