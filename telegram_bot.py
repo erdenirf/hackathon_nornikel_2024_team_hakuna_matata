@@ -8,8 +8,11 @@ from langchain_qdrant import QdrantVectorStore
 from qdrant_client import models
 from langchain.retrievers.ensemble import EnsembleRetriever
 from aiogram.utils.formatting import (
-    Bold, as_list, as_marked_section, as_key_value, HashTag
+    Bold, as_list, as_marked_section, HashTag
 )
+import base64
+from io import BytesIO
+from PIL import Image
 
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
@@ -113,6 +116,33 @@ async def cmd_del_indexed(message: types.Message):
 async def handle_text(message: types.Message):
     results = ensemble_retriever.invoke(message.text)
     texts = [f"{result.metadata['source']}/{result.metadata['page']}/{result.page_content}" for result in results]
+    images = [result.metadata['image_base64'] for result in results if result.metadata['type'] == 'image']
+    
+    for image in images:
+        try:
+            img_data = base64.b64decode(image)
+            bio = BytesIO(img_data)
+            
+            # Open and validate the image using PIL
+            img = Image.open(bio)
+            img = img.convert('RGB')  # Convert to RGB format
+            
+            # Save the processed image to a new BytesIO
+            output_bio = BytesIO()
+            img.save(output_bio, format='JPEG', quality=95)
+            output_bio.seek(0)
+            
+            await message.answer_photo(
+                types.BufferedInputFile(
+                    output_bio.getvalue(),
+                    filename="image.jpg"
+                ),
+                caption="Изображение"
+            )
+        except Exception as e:
+            logging.error(f"Ошибка при обработке изображения: {e}", exc_info=True)
+            continue
+
     content = as_list(
         as_marked_section(
             Bold("Multi-modal RAG context:"),
