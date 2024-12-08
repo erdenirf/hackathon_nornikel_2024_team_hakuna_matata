@@ -15,10 +15,12 @@ from pathlib import Path
 from src.NornikelPdfLoader import NornikelPdfLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# Constants
-CHUNK_SIZE = 1 * 1024 * 1024      # 1MB chunks
+# Initialize session state for retriever parameters
+if 'retriever_text_k' not in st.session_state:
+    st.session_state.retriever_text_k = 7
+if 'retriever_image_k' not in st.session_state:
+    st.session_state.retriever_image_k = 3
 
-# Initialize OpenAI client
 @st.cache_resource
 def init_openai_client():
     return OpenAI(
@@ -45,12 +47,11 @@ def init_vector_store(_embeddings):  # Добавлено подчеркиван
     return qdrant
 
 # Initialize retrievers
-@st.cache_resource
 def init_retrievers(_qdrant):  # Добавлено подчеркивание
     retriever_text = _qdrant.as_retriever(  # Используем параметр с подчеркиванием
         search_type="mmr",
         search_kwargs={
-            "k": 7,
+            "k": st.session_state.retriever_text_k,
             "filter": models.Filter(
                 should=[
                     models.FieldCondition(
@@ -65,7 +66,7 @@ def init_retrievers(_qdrant):  # Добавлено подчеркивание
     retriever_image = _qdrant.as_retriever(  # Используем параметр с подчеркиванием
         search_type="mmr",
         search_kwargs={
-            "k": 3,
+            "k": st.session_state.retriever_image_k,
             "filter": models.Filter(
                 should=[
                     models.FieldCondition(
@@ -132,6 +133,23 @@ st.title("Норникель PDF Ассистент")
 
 # Sidebar with file operations
 with st.sidebar:
+    # Add retriever parameters inputs
+    col1, col2 = st.columns(2)
+    with col1:
+        st.session_state.retriever_text_k = st.number_input(
+            "top-k текст",
+            min_value=1,
+            max_value=20,
+            value=st.session_state.retriever_text_k
+        )
+    with col2:
+        st.session_state.retriever_image_k = st.number_input(
+            "top-k фото",
+            min_value=1,
+            max_value=10,
+            value=st.session_state.retriever_image_k
+        )
+
     st.header("Управление документами")
     
     # Upload PDF
@@ -266,7 +284,11 @@ if prompt := st.chat_input("Задайте вопрос..."):
             completion = client.chat.completions.create(
                 model="Qwen/Qwen2-VL-72B-Instruct-AWQ",
                 messages=[
-                    {"role": "system", "content": """Я - виртуальный ассистент компании «Норникель»..."""},
+                    {"role": "system", "content": """Я - виртуальный ассистент компании «Норникель», созданный для помощи с документами и информацией компании. Я использую мультимодальную RAG-систему для поиска и анализа релевантной информации в корпоративных документах, изображениях и других материалах.
+
+        Я отвечаю на вопросы, основываясь на предоставленном контексте из базы знаний.
+
+        Мои ответы всегда вежливы, профессиональны и соответствуют корпоративной культуре Норникеля."""},
                     {"role": "system", "content": rag_context},
                     {"role": "user", "content": [{"type": "text", "text": prompt}]}
                 ]
