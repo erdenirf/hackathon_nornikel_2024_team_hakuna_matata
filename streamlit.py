@@ -279,6 +279,31 @@ if prompt := st.chat_input("Задайте вопрос..."):
                 for idx, (img, col) in enumerate(zip(images, cols)):
                     col.image(img, caption=f"Изображение {idx + 1}")
 
+            image_urls = []
+            for image in images:
+                # Resize image to reduce size (e.g., max width/height of 800px)
+                max_size = 800
+                ratio = min(max_size/image.size[0], max_size/image.size[1])
+                if ratio < 1:
+                    new_size = (int(image.size[0]*ratio), int(image.size[1]*ratio))
+                    image = image.resize(new_size, PIL.Image.Resampling.LANCZOS)
+                
+                # Convert to RGB if necessary (in case of RGBA images)
+                if image.mode in ('RGBA', 'P'):
+                    image = image.convert('RGB')
+                
+                # Compress image
+                buffered = BytesIO()
+                image.save(buffered, format="JPEG", quality=70, optimize=True)
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+                
+                # Format as proper base64 data URI
+                image_data = f"data:image/jpeg;base64,{img_str}"
+                image_urls.append({
+                    "type": "text",
+                    "text": image_data
+                })
+
             # Get LLM response
             rag_context = "\n\n".join(texts)
             completion = client.chat.completions.create(
@@ -290,7 +315,9 @@ if prompt := st.chat_input("Задайте вопрос..."):
 
         Мои ответы всегда вежливы, профессиональны и соответствуют корпоративной культуре Норникеля."""},
                     {"role": "system", "content": rag_context},
-                    {"role": "user", "content": [{"type": "text", "text": prompt}]}
+                    {"role": "user", "content": [{"type": "text", "text": prompt},
+                                                 image_urls[0]
+                                                 ]}
                 ]
             )
             
