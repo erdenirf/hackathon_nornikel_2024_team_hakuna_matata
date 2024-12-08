@@ -20,7 +20,7 @@ CHUNK_SIZE = 1 * 1024 * 1024      # 1MB chunks
 
 # Initialize session state
 if 'DB_LIST' not in st.session_state:
-    st.session_state.DB_LIST = {}
+    st.session_state.DB_LIST = []  # Changed from dict to list
 
 # Qdrant client initialization
 @st.cache_resource
@@ -109,11 +109,7 @@ with st.sidebar:
     # Upload PDF
     uploaded_file = st.file_uploader("Загрузить PDF документ", type=['pdf'])
     if uploaded_file:
-        content_bytes = uploaded_file.read()
-        checksum = zlib.crc32(content_bytes)
-        CRC32 = hex(checksum)
-
-        if CRC32 in st.session_state.DB_LIST:
+        if uploaded_file.name in st.session_state.DB_LIST:
             st.warning("Этот файл уже был загружен")
         else:
             with st.spinner("Обработка документа..."):
@@ -121,29 +117,23 @@ with st.sidebar:
                     # Save temporary file
                     temp_file_path = uploaded_file.name
                     with open(temp_file_path, "wb") as temp_file:
-                        temp_file.write(content_bytes)
+                        temp_file.write(uploaded_file.read())
                     
-                    # Process PDF
+                    # Load and process the PDF
                     loader = NornikelPdfLoader(temp_file_path)
-                    docs = loader.load()
-                    splitted_docs = text_splitter.split_documents(docs)
+                    documents = loader.load()
                     
-                    # Index documents in chunks
-                    chunk_size = 10
-                    progress_bar = st.progress(0)
-                    for i in range(0, len(splitted_docs), chunk_size):
-                        chunk_docs = splitted_docs[i:i + chunk_size]
-                        qdrant.add_documents(chunk_docs)
-                        progress = min((i + chunk_size) / len(splitted_docs), 1.0)
-                        progress_bar.progress(progress)
+                    # Split documents into chunks
+                    chunks = text_splitter.split_documents(documents)
                     
-                    st.session_state.DB_LIST[CRC32] = uploaded_file.name
+                    # Add documents to vector store
+                    qdrant.add_documents(chunks)
+                    
+                    st.session_state.DB_LIST.append(uploaded_file.name)
                     st.success(f"Файл {uploaded_file.name} успешно загружен и проиндексирован!")
                     
                 except Exception as e:
                     st.error(f"Ошибка при обработке файла: {str(e)}")
-                    if CRC32 in st.session_state.DB_LIST:
-                        del st.session_state.DB_LIST[CRC32]
                 finally:
                     if Path(temp_file_path).exists():
                         Path(temp_file_path).unlink()
@@ -151,7 +141,7 @@ with st.sidebar:
     # List indexed documents
     st.header("Проиндексированные документы")
     if st.session_state.DB_LIST:
-        for filename in sorted(st.session_state.DB_LIST.values()):
+        for filename in sorted(st.session_state.DB_LIST):
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.write(filename)
@@ -171,7 +161,7 @@ with st.sidebar:
                             )
                         )
                         # Remove from session state
-                        del st.session_state.DB_LIST[next(k for k, v in st.session_state.DB_LIST.items() if v == filename)]
+                        st.session_state.DB_LIST.remove(filename)
                         st.success(f"Документ {filename} удален")
                         st.rerun()
                     except Exception as e:
