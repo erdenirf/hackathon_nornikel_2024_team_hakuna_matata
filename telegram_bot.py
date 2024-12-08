@@ -20,6 +20,11 @@ from pathlib import Path
 from src.NornikelPdfLoader import NornikelPdfLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
+import math
+
+# Обновляем константы
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB максимальный размер для ботов
+CHUNK_SIZE = 1 * 1024 * 1024      # 1MB для чанков, чтобы избежать проблем с памятью
 
 # В начале файла инициализацию клиента
 qdrant_client = QdrantClient(
@@ -122,46 +127,100 @@ async def cmd_upload_pdf(message: types.Message):
 @dp.message(F.document)
 async def handle_pdf_document(message: types.Message):
     if message.document.mime_type == "application/pdf":
-        # Download the file
+        file_size = message.document.file_size
+        
+        if file_size > MAX_FILE_SIZE:
+            await message.answer(
+                "Файл слишком большой. Максимальный размер файла: 20MB.\n"
+                "Пожалуйста, уменьшите размер файла или разделите его на части."
+            )
+            return
+        
+        await handle_large_pdf(message)
+    else:
+        await message.answer("Пожалуйста, отправьте файл в формате PDF")
+
+async def handle_small_pdf(message: types.Message):
+    # Download the file
+    file = await bot.get_file(message.document.file_id)
+    file_content = await bot.download_file(file.file_path)
+    
+    # Calculate CRC32 checksum
+    content_bytes = file_content.read()
+    checksum = zlib.crc32(content_bytes)
+    CRC32 = hex(checksum)
+
+    if CRC32 in DB_LIST:
+        await message.answer(f"Этот файл уже был загружен ранее.")
+        return
+
+    await process_pdf_content(message, content_bytes, CRC32)
+
+async def handle_large_pdf(message: types.Message):
+    file_size = message.document.file_size
+    
+    if file_size > MAX_FILE_SIZE:
+        await message.answer("К сожалению, файл слишком большой. "
+                           "Максимальный размер файла для загрузки: 20MB.")
+        return
+
+    await message.answer(f"Начинаю загрузку файла размером {file_size / 1024 / 1024:.1f}MB...")
+
+    try:
+        # Загружаем файл одним запросом, так как теперь мы ограничены 20MB
         file = await bot.get_file(message.document.file_id)
         file_content = await bot.download_file(file.file_path)
-        
-        # Calculate CRC32 checksum
         content_bytes = file_content.read()
+        
+        # Вычисляем CRC32
         checksum = zlib.crc32(content_bytes)
         CRC32 = hex(checksum)
 
         if CRC32 in DB_LIST:
             await message.answer(f"Этот файл уже был загружен ранее.")
-        else:
-            await message.answer(f"Файл загружен и будет проиндексирован. Ожидайте...")
-            DB_LIST[CRC32] = message.document.file_name
-            
-            # Save the file temporarily to disk
-            temp_file_path = message.document.file_name
-            with open(temp_file_path, "wb") as temp_file:
-                file_content.seek(0)  # Reset file pointer
-                temp_file.write(content_bytes)
-            
-            try:
-                # Use the temporary file path with the loader
-                loader = NornikelPdfLoader(temp_file_path)
-                docs = loader.load()
-                splitted_docs = text_splitter.split_documents(docs)
-                for doc in splitted_docs:
-                    qdrant.add_documents([doc])
-                    
-                await message.answer(
-                    f"Файл успешно проиндексирован!\n"
-                    f"Получен PDF файл: {message.document.file_name}"
-                )
-            finally:
-                # Clean up the temporary file
-                import os
-                if os.path.exists(temp_file_path):
-                    os.remove(temp_file_path)
-    else:
-        await message.answer("Пожалуйста, отправьте файл в формате PDF")
+            return
+
+        await process_pdf_content(message, content_bytes, CRC32)
+
+    except Exception as e:
+        logging.error(f"Error processing PDF: {e}", exc_info=True)
+        await message.answer("Произошла ошибка при обработке файла. Пожалуйста, попробуйте позже.")
+
+async def process_pdf_content(message: types.Message, content_bytes: bytes, CRC32: str):
+    await message.answer(f"Файл загружен и будет проиндексирован. Ожидайте...")
+    DB_LIST[CRC32] = message.document.file_name
+    
+    # Save the file temporarily to disk
+    temp_file_path = message.document.file_name
+    try:
+        with open(temp_file_path, "wb") as temp_file:
+            temp_file.write(content_bytes)
+        
+        # Use the temporary file path with the loader
+        loader = NornikelPdfLoader(temp_file_path)
+        docs = loader.load()
+        splitted_docs = text_splitter.split_documents(docs)
+        
+        # Индексируем документы порциями для экономии памяти
+        chunk_size = 10  # количество документов в одной порции
+        for i in range(0, len(splitted_docs), chunk_size):
+            chunk_docs = splitted_docs[i:i + chunk_size]
+            qdrant.add_documents(chunk_docs)
+            await message.answer(f"Проиндексировано {min(i + chunk_size, len(splitted_docs))} из {len(splitted_docs)} частей...")
+        
+        await message.answer(
+            f"Файл успешно проиндексирован!\n"
+            f"Получен PDF файл: {message.document.file_name}"
+        )
+    except Exception as e:
+        logging.error(f"Error processing PDF: {e}", exc_info=True)
+        await message.answer("Произошла ошибка при обработке файла. Пожалуйста, попробуйте позже.")
+        if CRC32 in DB_LIST:
+            del DB_LIST[CRC32]
+    finally:
+        # Clean up the temporary file
+        if Path(temp_file_path).exists():
+            Path(temp_file_path).unlink()
 
 # Хэндлер на команду /del_indexed
 @dp.message(Command("del_indexed"))
