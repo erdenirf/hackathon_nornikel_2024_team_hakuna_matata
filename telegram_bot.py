@@ -19,6 +19,13 @@ import zlib
 from pathlib import Path
 from src.NornikelPdfLoader import NornikelPdfLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from qdrant_client import QdrantClient
+
+# В начале файла инициализацию клиента
+qdrant_client = QdrantClient(
+    url=config.QDRANT_URL.get_secret_value(),
+    api_key=config.QDRANT_API_KEY.get_secret_value(),
+)
 
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
@@ -159,7 +166,6 @@ async def handle_pdf_document(message: types.Message):
 # Хэндлер на команду /del_indexed
 @dp.message(Command("del_indexed"))
 async def cmd_del_indexed(message: types.Message):
-    # Get the command arguments (filename)
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
         await message.answer("Пожалуйста, укажите название файла после команды.\n"
@@ -167,7 +173,6 @@ async def cmd_del_indexed(message: types.Message):
         return
 
     filename = args[1]
-    # Find CRC32 key by filename value
     file_crc = None
     for crc, name in DB_LIST.items():
         if name == filename:
@@ -175,8 +180,27 @@ async def cmd_del_indexed(message: types.Message):
             break
 
     if file_crc:
-        del DB_LIST[file_crc]
-        await message.answer(f"Документ '{filename}' успешно удален из списка.")
+        try:
+            # Удаляем точки из Qdrant по фильтру
+            qdrant_client.delete(
+                collection_name=config.QDRANT_COLLECTION_NAME.get_secret_value(),
+                points_selector=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="metadata.source",
+                            match=models.MatchValue(
+                                value=filename
+                            ),
+                        ),
+                    ]
+                )
+            )
+            # Удаляем из локального списка после успешного удаления из Qdrant
+            del DB_LIST[file_crc]
+            await message.answer(f"Документ '{filename}' успешно удален из списка и базы данных.")
+        except Exception as e:
+            logging.error(f"Error deleting from Qdrant: {e}")
+            await message.answer(f"Произошла ошибка при удалении документа из базы данных.")
     else:
         await message.answer(f"Документ '{filename}' не найден в списке.")
 
