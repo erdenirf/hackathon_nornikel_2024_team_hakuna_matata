@@ -4,3 +4,4 @@ notebooks/
 .env
 qdrant_data/
 nohup.out
+*.pdf
