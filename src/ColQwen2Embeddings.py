@@ -1,3 +1,6 @@
+import torch
+
+
 try:
     from langchain_core.embeddings import Embeddings
     from langchain_core.pydantic_v1 import BaseModel
@@ -143,49 +146,67 @@ class ColQwen2Embeddings(Embeddings, BaseModel):
 
     def embed_documents(self, texts: list[str | Image.Image]) -> list[list[float]]:
         from PIL import Image
-
+        import torch
+        
+        # Уменьшаем размер батча
+        batch_size = 8  # Уменьшено с 32
+        
+        # Разделяем тексты и изображения
         texts2 = [text for text in texts if not isinstance(text, Image.Image)]
         images = [text for text in texts if isinstance(text, Image.Image)]
+        
+        all_text_embeddings = []
+        all_image_embeddings = []
+        
+        # Обработка текстов батчами
+        for i in range(0, len(texts2), batch_size):
+            batch_texts = texts2[i:i + batch_size]
+            if batch_texts:
+                batch_queries = self.processor_retrieval.process_queries(batch_texts).to(self.model.device)
+                self.model.enable_retrieval()
+                with torch.no_grad():
+                    query_embeddings = self.model.forward(**batch_queries)
+                    query_embeddings = query_embeddings.float()
+                    query_embeddings = torch.mean(query_embeddings, dim=1)
+                    query_embeddings = torch.nn.functional.normalize(query_embeddings, p=2, dim=-1)
+                    # Сразу переносим на CPU и очищаем GPU память
+                    all_text_embeddings.extend(query_embeddings.cpu().numpy().tolist())
+                    del query_embeddings
+                    torch.cuda.empty_cache()
 
-        if len(texts2) > 0:
-            batch_queries = self.processor_retrieval.process_queries(texts2).to(self.model.device)
-        else:
-            batch_queries = None
-        if len(images) > 0:
-            batch_images = self.processor_retrieval.process_images(images).to(self.model.device)
-        else:
-            batch_images = None
+        # Обработка изображений батчами
+        for i in range(0, len(images), batch_size):
+            batch_imgs = images[i:i + batch_size]
+            if batch_imgs:
+                batch_images = self.processor_retrieval.process_images(batch_imgs).to(self.model.device)
+                self.model.enable_retrieval()
+                with torch.no_grad():
+                    image_embeddings = self.model.forward(**batch_images)
+                    image_embeddings = image_embeddings.float()
+                    image_embeddings = torch.mean(image_embeddings, dim=1)
+                    image_embeddings = torch.nn.functional.normalize(image_embeddings, p=2, dim=-1)
+                    # Сразу переносим на CPU и очищаем GPU память
+                    all_image_embeddings.extend(image_embeddings.cpu().numpy().tolist())
+                    del image_embeddings
+                    torch.cuda.empty_cache()
 
-        # Forward pass
-        self.model.enable_retrieval()
-        import torch
+        return all_text_embeddings + all_image_embeddings
 
-        with torch.no_grad():
-            if batch_queries is not None:
-                query_embeddings = self.model.forward(**batch_queries)
-                # Convert to float32 and take mean over sequence length
-                query_embeddings = query_embeddings.float()
-                query_embeddings = torch.mean(query_embeddings, dim=1)  # Now shape is [1, 128]
-                # Normalize the embeddings
-                query_embeddings = torch.nn.functional.normalize(query_embeddings, p=2, dim=-1)
-                ret_query_embeddings = query_embeddings.cpu().numpy().tolist()
-            else:
-                ret_query_embeddings = []
+        # Обработка изображений батчами
+        for i in range(0, len(images), batch_size):
+            batch_imgs = images[i:i + batch_size]
+            if batch_imgs:
+                batch_images = self.processor_retrieval.process_images(batch_imgs).to(self.model.device)
+                # Forward pass для батча изображений
+                self.model.enable_retrieval()
+                with torch.no_grad():
+                    image_embeddings = self.model.forward(**batch_images)
+                    image_embeddings = image_embeddings.float()
+                    image_embeddings = torch.mean(image_embeddings, dim=1)
+                    image_embeddings = torch.nn.functional.normalize(image_embeddings, p=2, dim=-1)
+                    all_image_embeddings.extend(image_embeddings.cpu().numpy().tolist())
 
-            if batch_images is not None:
-                #image embeddings
-                image_embeddings = self.model.forward(**batch_images)
-                # Convert to float32
-                image_embeddings = image_embeddings.float()
-                # Take mean over sequence length
-                image_embeddings = torch.mean(image_embeddings, dim=1)  # Now shape should be [batch_size, 128]
-                # Normalize embeddings
-                image_embeddings = torch.nn.functional.normalize(image_embeddings, p=2, dim=-1)
-                ret_image_embeddings = image_embeddings.cpu().numpy().tolist()
-            else:
-                ret_image_embeddings = []
-
-        return ret_query_embeddings + ret_image_embeddings
+        return all_text_embeddings + all_image_embeddings
 
     try:
         from PIL import Image
