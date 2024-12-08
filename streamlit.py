@@ -297,6 +297,9 @@ if prompt := st.chat_input("Задайте вопрос..."):
             if images:
                 # Convert PIL Image to base64
                 buffered = BytesIO()
+                # Convert RGBA to RGB if necessary
+                if images[0].mode == 'RGBA':
+                    images[0] = images[0].convert('RGB')
                 images[0].save(buffered, format="JPEG")
                 img_str = base64.b64encode(buffered.getvalue()).decode()
                 
