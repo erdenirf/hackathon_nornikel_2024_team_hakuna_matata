@@ -129,7 +129,7 @@ async def handle_pdf_document(message: types.Message):
         if CRC32 in DB_LIST:
             await message.answer(f"Этот файл уже был загружен ранее.")
         else:
-            await message.answer(f"Файл успешно загружен и будет проиндексирован...")
+            await message.answer(f"Файл успешно загружен и будет проиндексирован. Ожидайте...")
             DB_LIST[CRC32] = message.document.file_name
             
             # Save the file temporarily to disk
