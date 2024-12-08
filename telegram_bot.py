@@ -102,16 +102,14 @@ async def cmd_start(message: types.Message):
 # Хэндлер на команду /list_indexed
 @dp.message(Command("list_indexed"))
 async def cmd_list_indexed(message: types.Message):
-    # Здесь будет логика получения списка документов
-    await message.answer("Список индексированных документов:\n"
-                        "1. Document1.pdf\n"
-                        "2. Document2.pdf\n"
-                        "(Это тестовый список)")
+    files: list[str] = sorted(list(DB_LIST.values())) if len(DB_LIST) > 0 else ["Список пуст"]
+    await message.answer("Список проиндексированных документов:\n"
+                        "\n".join(files))
 
 # Хэндлер на команду /upload_pdf
 @dp.message(Command("upload_pdf"))
 async def cmd_upload_pdf(message: types.Message):
-    await message.answer("Пожалуйста, отправьте PDF файл для загрузки.")
+    await message.answer("Пожалуйста, загрузите PDF-файл как документ.")
 
 # Хэндлер на получение PDF файла
 @dp.message(F.document)
@@ -129,7 +127,7 @@ async def handle_pdf_document(message: types.Message):
         if CRC32 in DB_LIST:
             await message.answer(f"Этот файл уже был загружен ранее.")
         else:
-            await message.answer(f"Файл успешно загружен и будет проиндексирован. Ожидайте...")
+            await message.answer(f"Файл загружен и будет проиндексирован. Ожидайте...")
             DB_LIST[CRC32] = message.document.file_name
             
             # Save the file temporarily to disk
@@ -147,8 +145,8 @@ async def handle_pdf_document(message: types.Message):
                     qdrant.add_documents([doc])
                     
                 await message.answer(
-                    f"Получен PDF файл: {message.document.file_name}\n"
-                    f"Файл успешно загружен и проиндексирован."
+                    f"Файл успешно проиндексирован!\n"
+                    f"Получен PDF файл: {message.document.file_name}"
                 )
             finally:
                 # Clean up the temporary file
