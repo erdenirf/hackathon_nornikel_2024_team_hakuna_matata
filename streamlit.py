@@ -18,18 +18,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 # Constants
 CHUNK_SIZE = 1 * 1024 * 1024      # 1MB chunks
 
-# Initialize session state
-if 'DB_LIST' not in st.session_state:
-    st.session_state.DB_LIST = []  # Changed from dict to list
-
-# Qdrant client initialization
-@st.cache_resource
-def init_qdrant_client():
-    return QdrantClient(
-        url=config.QDRANT_URL.get_secret_value(),
-        api_key=config.QDRANT_API_KEY.get_secret_value(),
-    )
-
 # Initialize OpenAI client
 @st.cache_resource
 def init_openai_client():
@@ -92,12 +80,52 @@ def init_retrievers(_qdrant):  # Добавлено подчеркивание
     return retriever_text, retriever_image
 
 # Initialize all resources
-qdrant_client = init_qdrant_client()
 client = init_openai_client()
 embeddings = init_embeddings()
 qdrant = init_vector_store(embeddings)
 retriever_text, retriever_image = init_retrievers(qdrant)
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+
+# Qdrant client initialization
+@st.cache_resource
+def init_qdrant_client():
+    return QdrantClient(
+        url=config.QDRANT_URL.get_secret_value(),
+        api_key=config.QDRANT_API_KEY.get_secret_value(),
+    )
+
+qdrant_client = init_qdrant_client()
+
+# Initialize session state
+if 'DB_LIST' not in st.session_state:
+    # Получаем все точки и собираем уникальные source
+    unique_sources = set()
+    offset = None
+
+    while True:
+        search_result = qdrant_client.scroll(
+            collection_name='nornikel_2024_team_hakuna_matata',
+            limit=100,
+            with_payload=True,
+            with_vectors=False,
+            offset=offset
+        )
+        
+        points, offset = search_result  # распаковываем результат
+        
+        # Если получили пустой список точек, выходим из цикла
+        if not points:
+            break
+        
+        # Добавляем source в множество
+        for point in points:
+            if 'metadata' in point.payload and 'source' in point.payload['metadata']:
+                unique_sources.add(point.payload['metadata']['source'])
+        
+        # Если offset None, значит это была последняя страница
+        if offset is None:
+            break
+    st.session_state.DB_LIST = list(unique_sources)  # Changed from dict to list
 
 # Streamlit UI
 st.title("Норникель PDF Ассистент")
