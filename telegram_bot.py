@@ -17,11 +17,13 @@ from PIL import Image
 from openai import OpenAI
 import zlib
 from pathlib import Path
+from src.NornikelPdfLoader import NornikelPdfLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
-
-DB_LIST: dict = {}
 
 client = OpenAI(
     base_url=config.LLM_BASE_URL.get_secret_value(),
@@ -32,11 +34,15 @@ logging.info("Loading embeddings")
 embeddings = ColQwen2Embeddings()
 logging.info("Embeddings loaded")
 
-qdrant = QdrantVectorStore.from_existing_collection(
+DB_LIST: dict = {}
+
+qdrant = QdrantVectorStore.from_documents(
+    documents=[],
     embedding=embeddings,
-    collection_name=config.QDRANT_COLLECTION_NAME.get_secret_value(),
     url=config.QDRANT_URL.get_secret_value(),
-    api_key=config.QDRANT_API_KEY.get_secret_value()
+    api_key=config.QDRANT_API_KEY.get_secret_value(),
+    collection_name=config.QDRANT_COLLECTION_NAME.get_secret_value(),
+    force_recreate=True
 )
 
 retriever_text = qdrant.as_retriever(search_type="mmr", 
@@ -123,11 +129,32 @@ async def handle_pdf_document(message: types.Message):
         if CRC32 in DB_LIST:
             await message.answer(f"Этот файл уже был загружен ранее.")
         else:
-            DB_LIST[CRC32] = Path(file.file_path).name
-            await message.answer(
-                f"Получен PDF файл: {message.document.file_name}\n"
-                f"(Здесь будет логика обработки файла)"
-            )
+            await message.answer(f"Файл успешно загружен и будет проиндексирован...")
+            DB_LIST[CRC32] = message.document.file_name
+            
+            # Save the file temporarily to disk
+            temp_file_path = message.document.file_name
+            with open(temp_file_path, "wb") as temp_file:
+                file_content.seek(0)  # Reset file pointer
+                temp_file.write(content_bytes)
+            
+            try:
+                # Use the temporary file path with the loader
+                loader = NornikelPdfLoader(temp_file_path)
+                docs = loader.load()
+                splitted_docs = text_splitter.split_documents(docs)
+                for doc in splitted_docs:
+                    qdrant.add_documents([doc])
+                    
+                await message.answer(
+                    f"Получен PDF файл: {message.document.file_name}\n"
+                    f"Файл успешно загружен и проиндексирован."
+                )
+            finally:
+                # Clean up the temporary file
+                import os
+                if os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
     else:
         await message.answer("Пожалуйста, отправьте файл в формате PDF")
 
