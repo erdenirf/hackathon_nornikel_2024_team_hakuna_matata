@@ -50,7 +50,7 @@ retriever_text = qdrant.as_retriever(search_type="mmr",
 })
 
 retriever_image = qdrant.as_retriever(search_type="mmr", 
-                                search_kwargs={"k": 4,
+                                search_kwargs={"k": 3,
     "filter": models.Filter(
         should=[
             models.FieldCondition(
@@ -192,21 +192,47 @@ async def handle_text(message: types.Message):
             sep="\n\n",
         )
         await message.answer(**content.as_kwargs())
-    
+
     rag_context = "\n\n".join(texts)
+    image_urls = []
+    for image in images:
+        # Clean up base64 string if it has data URI prefix
+        if ',' in image:
+            image = image.split(',')[1]
+        # Add proper base64 padding
+        padding = 4 - (len(image) % 4) if len(image) % 4 else 0
+        image = image + ('=' * padding)
+        # Format as proper base64 data URI
+        image_data = f"data:image/jpeg;base64,{image}"
+        image_urls.append({
+            "type": "text",  # Changed from "image_url" to "text"
+            "text": image_data  # Changed from "image_url" to "text"
+        })
+
     completion = client.chat.completions.create(
-        model="Qwen/Qwen2.5-Coder-32B-Instruct-AWQ",
+        model="Qwen/Qwen2-VL-72B-Instruct-AWQ",
         messages=[
             {"role": "system", "content": """Я - виртуальный ассистент компании «Норникель», созданный для помощи с документами и информацией компании. Я использую мультимодальную RAG-систему для поиска и анализа релевантной информации в корпоративных документах, изображениях и других материалах.
 
-        Я отвечаю на вопросы, основываясь на предоставленном контексте из базы знаний Норникеля. Если информации недостаточно или она отсутствует в контексте, я честно сообщу об этом.
+        Я отвечаю на вопросы, основываясь на предоставленном контексте из базы знаний.
 
         Мои ответы всегда вежливы, профессиональны и соответствуют корпоративной культуре Норникеля."""},
-            {"role": "system", "content": rag_context},  # Добавляем контекст от RAG как system message
-            {"role": "user", "content": message.text}
-        ]
+            {"role": "system", "content": rag_context},
+            {"role": "user", "content": [
+                {"type": "text", "text": message.text},
+                # *image_urls
+            ]}
+        ])
+
+    content = as_list(
+            as_marked_section(
+                Bold(f"LLM's answer (Qwen2-VL-72B-Instruct-AWQ):"),
+                completion.choices[0].message.content,
+                marker="🤖 ",
+            ),
+            sep="\n\n",
         )
-    await message.answer(f"LLM answer (Qwen): {completion.choices[0].message.content}")
+    await message.answer(**content.as_kwargs())
 
 # Запуск процесса поллинга новых апдейтов
 async def main():
