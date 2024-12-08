@@ -159,8 +159,26 @@ async def handle_pdf_document(message: types.Message):
 # Хэндлер на команду /del_indexed
 @dp.message(Command("del_indexed"))
 async def cmd_del_indexed(message: types.Message):
-    await message.answer("Введите номер или название документа для удаления\n"
-                        "(Здесь будет логика удаления)")
+    # Get the command arguments (filename)
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer("Пожалуйста, укажите название файла после команды.\n"
+                           "Пример: /del_indexed document.pdf")
+        return
+
+    filename = args[1]
+    # Find CRC32 key by filename value
+    file_crc = None
+    for crc, name in DB_LIST.items():
+        if name == filename:
+            file_crc = crc
+            break
+
+    if file_crc:
+        del DB_LIST[file_crc]
+        await message.answer(f"Документ '{filename}' успешно удален из списка.")
+    else:
+        await message.answer(f"Документ '{filename}' не найден в списке.")
 
 # Заменяем общий хэндлер на текстовые сообщения
 @dp.message(F.text)
