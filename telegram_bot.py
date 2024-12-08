@@ -15,9 +15,13 @@ import base64
 from io import BytesIO
 from PIL import Image
 from openai import OpenAI
+import zlib
+from pathlib import Path
 
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
+
+DB_LIST: dict = {}
 
 client = OpenAI(
     base_url=config.LLM_BASE_URL.get_secret_value(),
@@ -101,14 +105,29 @@ async def cmd_list_indexed(message: types.Message):
 # Хэндлер на команду /upload_pdf
 @dp.message(Command("upload_pdf"))
 async def cmd_upload_pdf(message: types.Message):
-    await message.answer("Пожалуйста, отправьте PDF файл для загрузки (в разработке)")
+    await message.answer("Пожалуйста, отправьте PDF файл для загрузки.")
 
 # Хэндлер на получение PDF файла
 @dp.message(F.document)
 async def handle_pdf_document(message: types.Message):
     if message.document.mime_type == "application/pdf":
-        await message.answer(f"Получен PDF файл: {message.document.file_name}\n"
-                           f"(Здесь будет логика обработки файла)")
+        # Download the file
+        file = await bot.get_file(message.document.file_id)
+        file_content = await bot.download_file(file.file_path)
+        
+        # Calculate CRC32 checksum
+        content_bytes = file_content.read()
+        checksum = zlib.crc32(content_bytes)
+        CRC32 = hex(checksum)
+
+        if CRC32 in DB_LIST:
+            await message.answer(f"Этот файл уже был загружен ранее.")
+        else:
+            DB_LIST[CRC32] = Path(file.file_path).name
+            await message.answer(
+                f"Получен PDF файл: {message.document.file_name}\n"
+                f"(Здесь будет логика обработки файла)"
+            )
     else:
         await message.answer("Пожалуйста, отправьте файл в формате PDF")
 
