@@ -197,7 +197,7 @@ class ColQwen2ForRAGLangchain:
         from PIL import Image
 
         def embed_query(self, text: str) -> list[float]:
-            
+
             import torch
             result = []
 
@@ -216,12 +216,13 @@ class ColQwen2ForRAGLangchain:
             return result
         
         def embed_documents(self, texts: list[str], batch_size: int = 8) -> list[list[float]]:
-            
             import torch
-            # Обработка текстов батчами
+            # Convert base64 strings to PIL Images first
+            images = [self.base64_to_image(text) for text in texts]
+            # Process images in batches
             all_image_embeddings = []
-            for i in range(0, len(texts), batch_size):
-                batch_imgs = texts[i:i + batch_size]
+            for i in range(0, len(images), batch_size):
+                batch_imgs = images[i:i + batch_size]
                 if batch_imgs:
                     batch_images = self.processor_retrieval.process_images(batch_imgs).to(self.model.device)
                     self.model.enable_retrieval()

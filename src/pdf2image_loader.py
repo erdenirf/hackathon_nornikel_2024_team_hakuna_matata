@@ -14,13 +14,6 @@ except ImportError:
     )
 
 try:
-    from pypdf import PdfReader
-except ImportError:
-    raise ImportError(
-        "pypdf package not found, please install it with `pip install pypdf`"
-    )
-
-try:
     from PIL.Image import Image
 except ImportError:
     raise ImportError(
@@ -53,19 +46,15 @@ def convert_Images_to_Documents(images: list[Image], metadata: dict) -> list[Doc
 
 class Pdf2ImageLoader(BaseLoader):
     file_path: str
-    parser: Any
     metadata: dict
     images: list[Image]
 
     def __init__(self, file_path: str):
 
         self.file_path = file_path
-        self.parser = PdfReader(file_path)
         self.metadata = {
             "source": Path(self.file_path).name
         }
-        if self.parser.metadata is not None:
-            self.metadata |= self.parser.metadata
 
     def load(self) -> list[Document]:
         self.images = convert_from_path(self.file_path, fmt='jpeg')
@@ -79,7 +68,7 @@ class Pdf2ImageLoaderBytes(BaseLoader):
     def __init__(self, bytes: Any):
         self.bytes = bytes
         self.metadata = {
-            "source": ""
+            "source": "bytes"
         }
 
     def load(self) -> list[Document]:
