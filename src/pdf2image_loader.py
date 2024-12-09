@@ -1,5 +1,5 @@
 try:
-    from pdf2image import convert_from_path, convert_from_bytes
+    from pdf2image import convert_from_path
 except ImportError:
     raise ImportError(
         "pdf2image package not found, please install it with `pip install pdf2image`"
@@ -20,29 +20,8 @@ except ImportError:
         "PIL package not found, please install it with `pip install Pillow`"
     )
 
-from typing import Any
 from pathlib import Path
 
-
-def convert_Image_to_base64(image: Image) -> str:
-    import base64
-    import io
-    # Save image to bytes buffer
-    buffer = io.BytesIO()
-    image.save(buffer, format='JPEG')
-    # Get the bytes data and convert to base64
-    base64_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
-    # Format as data URL
-    base64_str = f"data:image/jpeg;base64,{base64_data}"
-    return base64_str
-
-def convert_Images_to_Documents(images: list[Image], metadata: dict) -> list[Document]:
-    ret_docs: list[Document] = []
-    for index, image in enumerate(images):
-        page_content = convert_Image_to_base64(image.convert('RGB'))
-        doc = Document(page_content, metadata=metadata | {"page": index+1})
-        ret_docs.append(doc)
-    return ret_docs
 
 class Pdf2ImageLoader(BaseLoader):
     file_path: str
@@ -57,20 +36,25 @@ class Pdf2ImageLoader(BaseLoader):
         }
 
     def load(self) -> list[Document]:
-        self.images = convert_from_path(self.file_path, fmt='jpeg')
-        return convert_Images_to_Documents(self.images, self.metadata)
+        self.images = convert_from_path(self.file_path, fmt='jpeg', dpi=100, thread_count=4)
+        return self.convert_Images_to_Documents(self.images, self.metadata)
     
-class Pdf2ImageLoaderBytes(BaseLoader):
-    bytes: Any
-    metadata: dict
-    images: list[Image]
+    def convert_Image_to_base64(self, image: Image) -> str:
+        import base64
+        import io
+        # Save image to bytes buffer
+        buffer = io.BytesIO()
+        image.save(buffer, format='JPEG')
+        # Get the bytes data and convert to base64
+        base64_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        # Format as data URL
+        base64_str = f"data:image/jpeg;base64,{base64_data}"
+        return base64_str
 
-    def __init__(self, bytes: Any):
-        self.bytes = bytes
-        self.metadata = {
-            "source": "bytes"
-        }
-
-    def load(self) -> list[Document]:
-        self.images = convert_from_bytes(self.bytes, fmt='jpeg')
-        return convert_Images_to_Documents(self.images, self.metadata)
+    def convert_Images_to_Documents(self, images: list[Image], metadata: dict) -> list[Document]:
+        ret_docs: list[Document] = []
+        for index, image in enumerate(images):
+            page_content = self.convert_Image_to_base64(image.convert('RGB'))
+            doc = Document(page_content, metadata=metadata | {"page": index+1})
+            ret_docs.append(doc)
+        return ret_docs

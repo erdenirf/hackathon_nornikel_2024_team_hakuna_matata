@@ -50,8 +50,7 @@ with st.sidebar:
                     vector_store = QdrantVectorStore.from_documents(documents, embeddings, 
                                                                     collection_name=config.QDRANT_COLLECTION_NAME.get_secret_value(),
                                                                     url=config.QDRANT_URL.get_secret_value(),
-                                                                    api_key=config.QDRANT_API_KEY.get_secret_value(),
-                                                                    validate_collection_config=False)
+                                                                    api_key=config.QDRANT_API_KEY.get_secret_value())
                     
                     st.session_state["DB_LIST"] = st.session_state.get("DB_LIST", []).append(uploaded_file.name)
                     st.success(f"Файл {uploaded_file.name} успешно загружен и проиндексирован!")

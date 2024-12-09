@@ -215,7 +215,10 @@ class ColQwen2ForRAGLangchain:
                 torch.cuda.empty_cache()
             return result
         
-        def embed_documents(self, texts: list[str], batch_size: int = 8) -> list[list[float]]:
+        def embed_documents(self, texts: list[str], batch_size: int = 1) -> list[list[float]]:
+            if texts[0] == "dummy_text":
+                return [[0.0] * 128]
+
             import torch
             # Convert base64 strings to PIL Images first
             images = [self.base64_to_image(text) for text in texts]
