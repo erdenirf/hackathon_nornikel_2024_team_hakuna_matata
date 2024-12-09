@@ -2034,6 +2034,20 @@ test = ["hypothesis (>=6.46.1)", "pytest (>=7.3.2)", "pytest-xdist (>=2.2.0)"]
 xml = ["lxml (>=4.9.2)"]
 
 [[package]]
+name = "pdf2image"
+version = "1.17.0"
+description = "A wrapper around the pdftoppm and pdftocairo command line tools to convert PDF to a PIL Image list."
+optional = false
+python-versions = "*"
+files = [
+    {file = "pdf2image-1.17.0-py3-none-any.whl", hash = "sha256:ecdd58d7afb810dffe21ef2b1bbc057ef434dabbac6c33778a38a3f7744a27e2"},
+    {file = "pdf2image-1.17.0.tar.gz", hash = "sha256:eaa959bc116b420dd7ec415fcae49b98100dda3dd18cd2fdfa86d09f112f6d57"},
+]
+
+[package.dependencies]
+pillow = "*"
+
+[[package]]
 name = "peft"
 version = "0.11.1"
 description = "Parameter-Efficient Fine-Tuning (PEFT)"
@@ -3765,4 +3779,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "1f849f6118aeb80625befd99e5109740b6e872880dd7d453a1b5bf6ff7b00753"
+content-hash = "3fc754cb620c1c274ba184bf1d06e30d43004de15c5fd0cc4dfb15edfeed69e5"

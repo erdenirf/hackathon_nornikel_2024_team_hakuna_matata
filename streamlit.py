@@ -1,19 +1,14 @@
 import streamlit as st
-import logging
-import PIL
 from config_reader import config
-from src.ColQwen2Embeddings import ColQwen2Embeddings
+from src.ColQwen2ForRAGLangchain import ColQwen2ForRAGLangchain
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import models, QdrantClient
-from langchain.retrievers.ensemble import EnsembleRetriever
 import base64
 from io import BytesIO
 from PIL import Image
 from openai import OpenAI
-import zlib
 from pathlib import Path
-from src.NornikelPdfLoader import NornikelPdfLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from src.pdf2image_loader import Pdf2ImageLoader
 
 # Initialize session state for retriever parameters
 if 'retriever_text_k' not in st.session_state:
@@ -30,8 +25,8 @@ def init_openai_client():
 
 # Initialize embeddings
 @st.cache_resource
-def init_embeddings():
-    return ColQwen2Embeddings()
+def init_colqwen2():
+    return ColQwen2ForRAGLangchain()
 
 # Initialize Qdrant vector store
 @st.cache_resource
@@ -82,10 +77,9 @@ def init_retrievers(_qdrant):  # Добавлено подчеркивание
 
 # Initialize all resources
 client = init_openai_client()
-embeddings = init_embeddings()
+embeddings = init_colqwen2().ImageEmbeddings
 qdrant = init_vector_store(embeddings)
 retriever_text, retriever_image = init_retrievers(qdrant)
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
 # Qdrant client initialization
 @st.cache_resource
@@ -166,14 +160,11 @@ with st.sidebar:
                         temp_file.write(uploaded_file.read())
                     
                     # Load and process the PDF
-                    loader = NornikelPdfLoader(temp_file_path)
+                    loader = Pdf2ImageLoader(temp_file_path)
                     documents = loader.load()
                     
-                    # Split documents into chunks
-                    chunks = text_splitter.split_documents(documents)
-                    
                     # Add documents to vector store
-                    qdrant.add_documents(chunks)
+                    qdrant.add_documents(documents)
                     
                     st.session_state.DB_LIST.append(uploaded_file.name)
                     st.success(f"Файл {uploaded_file.name} успешно загружен и проиндексирован!")
