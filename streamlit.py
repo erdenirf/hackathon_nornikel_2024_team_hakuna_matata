@@ -1,5 +1,3 @@
-import base64
-from io import BytesIO
 from PIL import Image
 import streamlit as st
 from config_reader import config
@@ -20,6 +18,21 @@ def init_openai_client():
 @st.cache_resource
 def init_colqwen2():
     return ColQwen2ForRAGLangchain()
+
+def base64_to_image(text: str) -> Image.Image:
+    try:
+        import base64
+        from io import BytesIO
+        
+        image_base64 = text
+        if ',' in image_base64:
+            image_base64 = image_base64.split(',')[1]
+        padding = 4 - (len(image_base64) % 4) if len(image_base64) % 4 else 0
+        image_base64 = image_base64 + ('=' * padding)
+        img_data = base64.b64decode(image_base64)
+        return Image.open(BytesIO(img_data))
+    except Exception:
+        raise ValueError(f"Ошибка обработки изображения. Введите изображение в формате base64. Ваш ввод: {text}")
 
 vector_store = None
 
@@ -112,23 +125,10 @@ if prompt := st.chat_input("Задайте вопрос..."):
             results_image = vector_store.similarity_search_by_vector(init_colqwen2().TextEmbeddings.embed_query(prompt), k=5)
             
             # Process image results
-            images = []
-            for result in results_image:
-                try:
-                    image_base64 = result.page_content
-                    if ',' in image_base64:
-                        image_base64 = image_base64.split(',')[1]
-                    padding = 4 - (len(image_base64) % 4) if len(image_base64) % 4 else 0
-                    image_base64 = image_base64 + ('=' * padding)
-                    
-                    img_data = base64.b64decode(image_base64)
-                    img = Image.open(BytesIO(img_data))
-                    images.append(img)
-                except Exception as e:
-                    st.error(f"Ошибка обработки изображения: {str(e)}")
+            images = [base64_to_image(result.page_content) for result in results_image]
+            sources = [result.metadata['source'] for result in results_image]
+            pages = [result.metadata['page'] for result in results_image]
 
-            if images:
-                st.write("Найденные изображения:")
-                cols = st.columns(min(len(images), 3))
-                for idx, (img, col) in enumerate(zip(images, cols)):
-                    col.image(img, caption=f"Изображение {idx + 1}")
+            for index, image in enumerate(images):
+                st.image(image, caption=f"{sources[index]} / {pages[index]} стр.")
+
