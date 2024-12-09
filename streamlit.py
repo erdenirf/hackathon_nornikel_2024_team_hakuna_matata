@@ -3,20 +3,12 @@ import streamlit as st
 from config_reader import config
 from src.ColQwen2ForRAGLangchain import ColQwen2ForRAGLangchain
 from langchain_qdrant import QdrantVectorStore
-from openai import OpenAI
 from pathlib import Path
 from src.pdf2image_loader import Pdf2ImageLoader
 
-@st.cache_resource
-def init_openai_client():
-    return OpenAI(
-        base_url=config.LLM_BASE_URL.get_secret_value(),
-        api_key=config.LLM_API_KEY.get_secret_value(),
-    )
-
 # Initialize embeddings
 @st.cache_resource
-def init_colqwen2():
+def ColQwen2ForRAGLangchain_():
     return ColQwen2ForRAGLangchain()
 
 def base64_to_image(text: str) -> Image.Image:
@@ -37,8 +29,7 @@ def base64_to_image(text: str) -> Image.Image:
 vector_store = None
 
 # Initialize all resources
-client = init_openai_client()
-embeddings = init_colqwen2().ImageEmbeddings
+embeddings = ColQwen2ForRAGLangchain_().ImageEmbeddings
 
 # Streamlit UI
 st.title("Норникель PDF Ассистент")
@@ -122,7 +113,7 @@ if prompt := st.chat_input("Задайте вопрос..."):
                                                                 embedding=embeddings,
                                                                 url=config.QDRANT_URL.get_secret_value(),
                                                                 api_key=config.QDRANT_API_KEY.get_secret_value())
-            results_image = vector_store.similarity_search_by_vector(init_colqwen2().TextEmbeddings.embed_query(prompt), k=5)
+            results_image = vector_store.similarity_search_by_vector(ColQwen2ForRAGLangchain_().TextEmbeddings.embed_query(prompt), k=5)
             
             # Process image results
             images = [base64_to_image(result.page_content) for result in results_image]
