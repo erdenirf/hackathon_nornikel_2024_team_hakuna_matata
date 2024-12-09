@@ -139,28 +139,9 @@ class ColQwen2ForRAGLangchain:
             self.model = model
         
         def embed_query(self, text: str) -> list[float]:
-            
-            import torch
-            # Process the inputs
-            batch_queries = self.processor_retrieval.process_queries([text]).to(self.model.device)
-            # Forward pass
-            self.model.enable_retrieval()
-            result = []
-
-            with torch.no_grad():
-                query_embeddings = self.model.forward(**batch_queries)
-                query_embeddings = query_embeddings.float()
-                query_embeddings = torch.mean(query_embeddings, dim=1)
-                query_embeddings = torch.nn.functional.normalize(query_embeddings, p=2, dim=-1)
-                # Сразу переносим на CPU и очищаем GPU память
-                result = query_embeddings.cpu().numpy().tolist()
-                del query_embeddings
-                torch.cuda.empty_cache()
-            
-            return result
+            return self.embed_documents([text])[0]
         
-        def embed_documents(self, texts: list[str], batch_size: int = 8) -> list[list[float]]:
-            
+        def embed_documents(self, texts: list[str], batch_size: int = 8) -> list[list[float]]: 
             import torch
             # Обработка текстов батчами
             all_text_embeddings = []
@@ -197,23 +178,7 @@ class ColQwen2ForRAGLangchain:
         from PIL import Image
 
         def embed_query(self, text: str) -> list[float]:
-
-            import torch
-            result = []
-
-            img = self.base64_to_image(text)
-            batch_images = self.processor_retrieval.process_images([img]).to(self.model.device)
-            self.model.enable_retrieval()
-            with torch.no_grad():
-                image_embeddings = self.model.forward(**batch_images)
-                image_embeddings = image_embeddings.float()
-                image_embeddings = torch.mean(image_embeddings, dim=1)
-                image_embeddings = torch.nn.functional.normalize(image_embeddings, p=2, dim=-1)
-                # Сразу переносим на CPU и очищаем GPU память
-                result = image_embeddings.cpu().numpy().tolist()
-                del image_embeddings
-                torch.cuda.empty_cache()
-            return result
+            return self.embed_documents([text])[0]
         
         def embed_documents(self, texts: list[str], batch_size: int = 1) -> list[list[float]]:
             if texts[0] == "dummy_text":

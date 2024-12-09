@@ -1,3 +1,6 @@
+import base64
+from io import BytesIO
+from PIL import Image
 import streamlit as st
 from config_reader import config
 from src.ColQwen2ForRAGLangchain import ColQwen2ForRAGLangchain
@@ -17,6 +20,8 @@ def init_openai_client():
 @st.cache_resource
 def init_colqwen2():
     return ColQwen2ForRAGLangchain()
+
+vector_store = None
 
 # Initialize all resources
 client = init_openai_client()
@@ -85,3 +90,45 @@ for message in st.session_state.messages:
         if "images" in message:
             for img in message["images"]:
                 st.image(img)
+
+# Chat input
+if prompt := st.chat_input("Задайте вопрос..."):
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    # Display user message
+    with st.chat_message("user"):
+        st.write(prompt)
+
+    # Get response
+    with st.chat_message("assistant"):
+        with st.spinner("Думаю..."):
+            # Get context from retrievers
+            if vector_store is None:
+                vector_store = QdrantVectorStore.from_existing_collection(collection_name=config.QDRANT_COLLECTION_NAME.get_secret_value(),
+                                                                embedding=embeddings,
+                                                                url=config.QDRANT_URL.get_secret_value(),
+                                                                api_key=config.QDRANT_API_KEY.get_secret_value())
+            results_image = vector_store.similarity_search_by_vector(init_colqwen2().TextEmbeddings.embed_query(prompt), k=5)
+            
+            # Process image results
+            images = []
+            for result in results_image:
+                try:
+                    image_base64 = result.page_content
+                    if ',' in image_base64:
+                        image_base64 = image_base64.split(',')[1]
+                    padding = 4 - (len(image_base64) % 4) if len(image_base64) % 4 else 0
+                    image_base64 = image_base64 + ('=' * padding)
+                    
+                    img_data = base64.b64decode(image_base64)
+                    img = Image.open(BytesIO(img_data))
+                    images.append(img)
+                except Exception as e:
+                    st.error(f"Ошибка обработки изображения: {str(e)}")
+
+            if images:
+                st.write("Найденные изображения:")
+                cols = st.columns(min(len(images), 3))
+                for idx, (img, col) in enumerate(zip(images, cols)):
+                    col.image(img, caption=f"Изображение {idx + 1}")
