@@ -5,6 +5,13 @@ except ImportError:
         "colpali-engine package not found, please install it with `pip install colpali-engine`"
     )
 
+try:
+    from PIL import Image
+except ImportError:
+    raise ImportError(
+        "PIL package not found, please install it with `pip install Pillow`"
+    )
+
 class ColQwen2ForRAG(ColQwen2):
         """
         ColQwen2 model implementation that can be used both for retrieval and generation.
@@ -174,8 +181,6 @@ class ColQwen2ForRAGLangchain:
             super().__init__()
             self.processor_retrieval = processor_retrieval
             self.model = model
-        
-        from PIL import Image
 
         def embed_query(self, text: str) -> list[float]:
             return self.embed_documents([text])[0]
@@ -210,7 +215,6 @@ class ColQwen2ForRAGLangchain:
             try:
                 import base64
                 from io import BytesIO
-                from PIL import Image
                 
                 image_base64 = text
                 if ',' in image_base64:
