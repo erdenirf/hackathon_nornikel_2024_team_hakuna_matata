@@ -17,6 +17,7 @@ pdf2image = "^1.17.0"
 fastapi = "^0.115.6"
 uvicorn = "^0.32.1"
 python-multipart = "^0.0.19"
+httpx = "^0.28.1"
 
 [tool.poetry.dev-dependencies]
 

@@ -1,17 +1,47 @@
-from PIL import Image
 import streamlit as st
-from config_reader import config
-from src.ColQwen2ForRAGLangchain import ColQwen2ForRAGLangchain
-from langchain_qdrant import QdrantVectorStore
-from pathlib import Path
-from src.pdf2image_loader import Pdf2ImageLoader
-from qdrant_client import models, QdrantClient
+import httpx
+import asyncio
+from functools import wraps
+from PIL import Image
 
-# Initialize embeddings
-@st.cache_resource
-def ColQwen2ForRAGLangchain_():
-    return ColQwen2ForRAGLangchain()
+# API configuration
+API_BASE_URL = "http://localhost:8000"  # Adjust as needed
 
+# Helper to run async functions in Streamlit
+def async_to_sync(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return asyncio.run(func(*args, **kwargs))
+    return wrapper
+
+async def upload_file(file) -> dict:
+    async with httpx.AsyncClient() as client:
+        files = {"file": (file.name, file.getvalue(), "application/pdf")}
+        response = await client.post(f"{API_BASE_URL}/documents/upload", files=files)
+        response.raise_for_status()
+        return response.json()
+
+async def get_documents() -> list:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{API_BASE_URL}/documents")
+        response.raise_for_status()
+        return response.json()
+
+async def delete_document(filename: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.delete(f"{API_BASE_URL}/documents/{filename}")
+        response.raise_for_status()
+        return response.json()
+
+async def chat_request(message: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{API_BASE_URL}/chat",
+            json={"message": message}
+        )
+        response.raise_for_status()
+        return response.json()
+    
 def base64_to_image(text: str) -> Image.Image:
     try:
         import base64
@@ -27,21 +57,6 @@ def base64_to_image(text: str) -> Image.Image:
     except Exception:
         raise ValueError(f"Ошибка обработки изображения. Введите изображение в формате base64. Ваш ввод: {text}")
 
-vector_store = None
-
-# Initialize all resources
-embeddings = ColQwen2ForRAGLangchain_().ImageEmbeddings
-
-# Qdrant client initialization
-@st.cache_resource
-def init_qdrant_client():
-    return QdrantClient(
-        url=config.QDRANT_URL.get_secret_value(),
-        api_key=config.QDRANT_API_KEY.get_secret_value(),
-    )
-
-qdrant_client = init_qdrant_client()
-
 # Streamlit UI
 st.title("Норникель PDF Ассистент")
 
@@ -52,65 +67,36 @@ with st.sidebar:
     # Upload PDF
     uploaded_file = st.file_uploader("Загрузить PDF документ", type=['pdf'])
     if uploaded_file:
-        if uploaded_file.name in st.session_state.get("DB_LIST", []):
-            st.warning("Этот файл уже был загружен")
-        else:
-            with st.spinner("Обработка документа..."):
-                try:
-                    # Save temporary file
-                    temp_file_path = uploaded_file.name
-                    with open(temp_file_path, "wb") as temp_file:
-                        temp_file.write(uploaded_file.read())
-                    
-                    # Load and process the PDF
-                    loader = Pdf2ImageLoader(temp_file_path)
-                    documents = loader.load()
-                    
-                    # Add documents to vector store
-                    vector_store = QdrantVectorStore.from_documents(documents, embeddings, 
-                                                                    collection_name=config.QDRANT_COLLECTION_NAME.get_secret_value(),
-                                                                    url=config.QDRANT_URL.get_secret_value(),
-                                                                    api_key=config.QDRANT_API_KEY.get_secret_value())
-                    
-                    st.session_state["DB_LIST"] = st.session_state.get("DB_LIST", []).append(uploaded_file.name)
-                    st.success(f"Файл {uploaded_file.name} успешно загружен и проиндексирован!")
-                    
-                except Exception as e:
-                    st.error(f"Ошибка при обработке файла: {str(e)}")
-                finally:
-                    if Path(temp_file_path).exists():
-                        Path(temp_file_path).unlink()
+        with st.spinner("Обработка документа..."):
+            try:
+                response = async_to_sync(upload_file)(uploaded_file)
+                st.success(response["message"])
+                st.rerun()
+            except Exception as e:
+                st.error(f"Ошибка при обработке файла: {str(e)}")
 
     # List indexed documents
     st.header("Проиндексированные документы")
-    if st.session_state.get("DB_LIST", []):
-        for filename in sorted(st.session_state.get("DB_LIST", [])):
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(filename)
-            with col2:
-                if st.button("Удалить", key=filename):
-                    try:
-                        # Delete from Qdrant
-                        qdrant_client.delete(
-                            collection_name=config.QDRANT_COLLECTION_NAME.get_secret_value(),
-                            points_selector=models.Filter(
-                                must=[
-                                    models.FieldCondition(
-                                        key="metadata.source",
-                                        match=models.MatchValue(value=filename)
-                                    )
-                                ]
-                            )
-                        )
-                        # Remove from session state
-                        st.session_state.DB_LIST.remove(filename)
-                        st.success(f"Документ {filename} удален")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Ошибка при удалении: {str(e)}")
-    else:
-        st.write("Нет загруженных документов")
+    try:
+        documents = async_to_sync(get_documents)()
+        
+        if documents:
+            for filename in sorted(documents):
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(filename)
+                with col2:
+                    if st.button("Удалить", key=filename):
+                        try:
+                            response = async_to_sync(delete_document)(filename)
+                            st.success(response["message"])
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Ошибка при удалении: {str(e)}")
+        else:
+            st.write("Нет загруженных документов")
+    except Exception as e:
+        st.error(f"Ошибка при получении списка документов: {str(e)}")
 
 # Main chat interface
 st.header("Чат с ассистентом")
@@ -136,24 +122,26 @@ if prompt := st.chat_input("Задайте вопрос..."):
     with st.chat_message("user"):
         st.write(prompt)
 
-    # Get response
+    # Get response from API
     with st.chat_message("assistant"):
         with st.spinner("Думаю..."):
-            # Get context from retrievers
-            if vector_store is None:
-                vector_store = QdrantVectorStore.from_existing_collection(collection_name=config.QDRANT_COLLECTION_NAME.get_secret_value(),
-                                                                embedding=embeddings,
-                                                                url=config.QDRANT_URL.get_secret_value(),
-                                                                api_key=config.QDRANT_API_KEY.get_secret_value())
-            results_image = vector_store.similarity_search_by_vector(ColQwen2ForRAGLangchain_().TextEmbeddings.embed_query(prompt), k=5)
-            
-            # Process image results
-            images = [base64_to_image(result.page_content) for result in results_image]
-            sources = [result.metadata['source'] for result in results_image]
-            pages = [result.metadata['page'] for result in results_image]
-
-            for index, image in enumerate(images):
-                st.image(image, caption=f"{sources[index]} / {pages[index]} стр.")
-
-            response = ColQwen2ForRAGLangchain_().generate(prompt, image=images[0])[0]
-            st.write(response)
+            try:
+                chat_response = async_to_sync(chat_request)(prompt)
+                
+                # Display images if present
+                if "context_images" in chat_response:
+                    for index, img_data in enumerate(chat_response["context_images"]):
+                        image = base64_to_image(img_data)
+                        st.image(image, caption=f"{chat_response['sources'][index]} / {chat_response['pages'][index]} стр.")
+                
+                # Display text response
+                st.write(chat_response["response"])
+                
+                # Add assistant response to chat history
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": chat_response["response"],
+                    "images": chat_response.get("images", [])
+                })
+            except Exception as e:
+                st.error(f"Ошибка при получении ответа: {str(e)}")
