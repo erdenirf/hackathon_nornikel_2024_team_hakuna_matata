@@ -1,5 +1,6 @@
 from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware  # Добавляем импорт
 from typing import List, Dict
 import shutil
 from pathlib import Path
@@ -9,6 +10,15 @@ from models import ChatRequest, ChatResponse
 from services import QdrantService, RAGService
 
 app = FastAPI(title="Норникель PDF Ассистент API")
+
+# Добавляем CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Разрешаем все источники (в продакшене лучше указать конкретные домены)
+    allow_credentials=True,
+    allow_methods=["*"],  # Разрешаем все HTTP методы
+    allow_headers=["*"],  # Разрешаем все заголовки
+)
 qdrant_service = QdrantService()
 rag_service = RAGService()
 
