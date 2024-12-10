@@ -12,6 +12,13 @@ except ImportError:
         "PIL package not found, please install it with `pip install Pillow`"
     )
 
+try:
+    from transformers.models.qwen2_vl import Qwen2VLForConditionalGeneration, Qwen2VLProcessor
+except ImportError:
+    raise ImportError(
+        "transformers package not found, please install it with `pip install transformers`"
+    )
+
 class ColQwen2ForRAG(ColQwen2):
         """
         ColQwen2 model implementation that can be used both for retrieval and generation.
@@ -30,12 +37,6 @@ class ColQwen2ForRAG(ColQwen2):
             or ColQwen2.forward for retrieval based on the current mode.
             """
             from colpali_engine.models import ColQwen2
-            try:
-                from transformers.models.qwen2_vl import Qwen2VLForConditionalGeneration
-            except ImportError:
-                raise ImportError(
-                    "transformers package not found, please install it with `pip install transformers`"
-                )
             if self.is_retrieval_enabled:
                 return ColQwen2.forward(self, *args, **kwargs)
             else:
@@ -73,14 +74,22 @@ class ColQwen2ForRAG(ColQwen2):
             self.disable_adapters()
             self._is_retrieval_enabled = False
 
-class ColQwen2ForRAGLangchain:
+try:
+    from langchain_core.embeddings import Embeddings
+    from langchain_core.pydantic_v1 import BaseModel
+except ImportError:
+    raise ImportError(
+        "langchain-core package not found, please install it with `pip install langchain-core`"
+    )
 
+class ColQwen2ForRAGLangchain:
     from typing import Any
     # Добавляем объявление полей класса
     model_name: str
     device_name: str
     model: Any
     processor_retrieval: Any
+    processor_generation: Any
     device: Any
     lora_config: Any
 
@@ -110,6 +119,7 @@ class ColQwen2ForRAGLangchain:
         self.lora_config = LoraConfig.from_pretrained(model_name)
         # Load the processors
         self.processor_retrieval = cast(ColQwen2Processor, ColQwen2Processor.from_pretrained(model_name))
+        self.processor_generation = cast(Qwen2VLProcessor, Qwen2VLProcessor.from_pretrained(self.lora_config.base_model_name_or_path))
         # Load the model with the loaded pre-trained adapter for retrieval
         self.model = cast(
             ColQwen2ForRAG,
@@ -124,13 +134,45 @@ class ColQwen2ForRAGLangchain:
         # Load the image embeddings
         self.ImageEmbeddings = self.ImageEmbeddingsClass(self.processor_retrieval, self.model)
 
-    try:
-        from langchain_core.embeddings import Embeddings
-        from langchain_core.pydantic_v1 import BaseModel
-    except ImportError:
-        raise ImportError(
-            "langchain-core package not found, please install it with `pip install langchain-core`"
+    def generate(self, query: str, image: Image.Image) -> str:
+        # Preprocess the inputs
+        conversation = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                    },
+                    {
+                        "type": "text",
+                        "text": f"Ответь на вопрос, используя изображение (язык ответа - русский): {query}",
+                    },
+                ],
+            }
+        ]
+        text_prompt = self.processor_generation.apply_chat_template(conversation, add_generation_prompt=True)
+        inputs_generation = self.processor_generation(
+            text=[text_prompt],
+            images=[image],
+            padding=True,
+            return_tensors="pt",
+        ).to(self.device)
+
+        # Generate the RAG response
+        self.model.enable_generation()
+        output_ids = self.model.generate(**inputs_generation, max_new_tokens=128)
+
+        # Ensure that only the newly generated token IDs are retained from output_ids
+        generated_ids = [output_ids[len(input_ids) :] for input_ids, output_ids in zip(inputs_generation.input_ids, output_ids)]
+
+        # Decode the RAG response
+        output_text = self.processor_generation.batch_decode(
+            generated_ids,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True,
         )
+
+        return output_text
     
     class TextEmbeddingsClass(Embeddings, BaseModel):
         from typing import Any

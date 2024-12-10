@@ -123,3 +123,5 @@ if prompt := st.chat_input("Задайте вопрос..."):
             for index, image in enumerate(images):
                 st.image(image, caption=f"{sources[index]} / {pages[index]} стр.")
 
+            response = ColQwen2ForRAGLangchain_().generate(prompt, image=images[0])[0]
+            st.write(response)
