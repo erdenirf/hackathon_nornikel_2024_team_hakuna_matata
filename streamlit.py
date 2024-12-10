@@ -5,6 +5,7 @@ from src.ColQwen2ForRAGLangchain import ColQwen2ForRAGLangchain
 from langchain_qdrant import QdrantVectorStore
 from pathlib import Path
 from src.pdf2image_loader import Pdf2ImageLoader
+from qdrant_client import models, QdrantClient
 
 # Initialize embeddings
 @st.cache_resource
@@ -30,6 +31,16 @@ vector_store = None
 
 # Initialize all resources
 embeddings = ColQwen2ForRAGLangchain_().ImageEmbeddings
+
+# Qdrant client initialization
+@st.cache_resource
+def init_qdrant_client():
+    return QdrantClient(
+        url=config.QDRANT_URL.get_secret_value(),
+        api_key=config.QDRANT_API_KEY.get_secret_value(),
+    )
+
+qdrant_client = init_qdrant_client()
 
 # Streamlit UI
 st.title("Норникель PDF Ассистент")
@@ -77,6 +88,27 @@ with st.sidebar:
             col1, col2 = st.columns([3, 1])
             with col1:
                 st.write(filename)
+            with col2:
+                if st.button("Удалить", key=filename):
+                    try:
+                        # Delete from Qdrant
+                        qdrant_client.delete(
+                            collection_name=config.QDRANT_COLLECTION_NAME.get_secret_value(),
+                            points_selector=models.Filter(
+                                must=[
+                                    models.FieldCondition(
+                                        key="metadata.source",
+                                        match=models.MatchValue(value=filename)
+                                    )
+                                ]
+                            )
+                        )
+                        # Remove from session state
+                        st.session_state.DB_LIST.remove(filename)
+                        st.success(f"Документ {filename} удален")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Ошибка при удалении: {str(e)}")
     else:
         st.write("Нет загруженных документов")
 
