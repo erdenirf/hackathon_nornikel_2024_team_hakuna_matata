@@ -19,6 +19,7 @@ Multimodal RAG pipeline with VLM (ColPali) - система для интелл�
 - Qdrant Vector Database
 - LangChain
 - PyTorch
+- pdf2image (poppler-utils)
 
 ## Установка
 
