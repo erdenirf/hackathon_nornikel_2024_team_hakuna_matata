@@ -5,6 +5,9 @@ from typing import List, Dict
 import shutil
 from pathlib import Path
 import tempfile
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 from models import ChatRequest, ChatResponse
 from services import QdrantService, RAGService
@@ -25,7 +28,11 @@ rag_service = RAGService()
 @app.get("/documents", response_model=List[str])
 async def get_indexed_documents():
     """Получить список всех проиндексированных документов"""
-    return await qdrant_service.get_all_documents()
+    try:
+        return await qdrant_service.get_all_documents()
+    except Exception as e:
+        logging.info(f"Ошибка при получении списка документов: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.delete("/documents/{filename}")
 async def delete_document(filename: str):
@@ -36,6 +43,7 @@ async def delete_document(filename: str):
             return JSONResponse(content={"message": f"Документ {filename} не найден в индексе"}, status_code=404)
         return JSONResponse(content={"message": f"Документ {filename} успешно удален"})
     except Exception as e:
+        logging.info(f"Ошибка при удалении документа: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/documents/upload")
@@ -63,6 +71,7 @@ async def upload_document(file: UploadFile):
             return JSONResponse(content={"message": f"Файл {file.filename} успешно загружен и проиндексирован"})
     
     except Exception as e:
+        logging.info(f"Ошибка при загрузке файла: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/chat", response_model=ChatResponse)
@@ -72,4 +81,5 @@ async def chat(request: ChatRequest):
         response = await rag_service.generate_response(request.message)
         return response
     except Exception as e:
+        logging.info(f"Ошибка при генерации ответа: {e}")
         raise HTTPException(status_code=400, detail=str(e))

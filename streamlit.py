@@ -6,6 +6,7 @@ from PIL import Image
 
 # API configuration
 API_BASE_URL = "http://localhost:8000"  # Adjust as needed
+HTTPX_TIMEOUT = 1800
 
 # Helper to run async functions in Streamlit
 def async_to_sync(func):
@@ -15,32 +16,39 @@ def async_to_sync(func):
     return wrapper
 
 async def upload_file(file) -> dict:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         files = {"file": (file.name, file.getvalue(), "application/pdf")}
         response = await client.post(f"{API_BASE_URL}/documents/upload", files=files)
         response.raise_for_status()
         return response.json()
 
 async def get_documents() -> list:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         response = await client.get(f"{API_BASE_URL}/documents")
         response.raise_for_status()
         return response.json()
 
 async def delete_document(filename: str) -> dict:
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         response = await client.delete(f"{API_BASE_URL}/documents/{filename}")
         response.raise_for_status()
         return response.json()
 
 async def chat_request(message: str) -> dict:
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{API_BASE_URL}/chat",
-            json={"message": message}
-        )
-        response.raise_for_status()
-        return response.json()
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+        try:
+            response = await client.post(
+                f"{API_BASE_URL}/chat",
+                json={"message": message}
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            print(f"HTTP Error: {e.response.status_code} - {e.response.text}")
+            raise
+        except Exception as e:
+            print(f"Unexpected error in chat_request: {str(e)}")
+            raise
     
 def base64_to_image(text: str) -> Image.Image:
     try:
@@ -127,12 +135,17 @@ if prompt := st.chat_input("Задайте вопрос..."):
         with st.spinner("Думаю..."):
             try:
                 chat_response = async_to_sync(chat_request)(prompt)
+                print(f"Received response: {chat_response}")  # Debug print
                 
                 # Display images if present
                 if "context_images" in chat_response:
                     for index, img_data in enumerate(chat_response["context_images"]):
-                        image = base64_to_image(img_data)
-                        st.image(image, caption=f"{chat_response['sources'][index]} / {chat_response['pages'][index]} стр.")
+                        try:
+                            image = base64_to_image(img_data)
+                            st.image(image, caption=f"{chat_response['sources'][index]} / {chat_response['pages'][index]} стр.")
+                        except Exception as img_error:
+                            print(f"Error processing image: {str(img_error)}")
+                            st.error(f"Ошибка при обработке изображения: {str(img_error)}")
                 
                 # Display text response
                 st.write(chat_response["response"])
@@ -141,7 +154,8 @@ if prompt := st.chat_input("Задайте вопрос..."):
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": chat_response["response"],
-                    "images": chat_response.get("images", [])
+                    "images": chat_response.get("context_images", [])  # Changed from 'images' to 'context_images'
                 })
             except Exception as e:
+                print(f"Full error details: {str(e)}")  # Debug print
                 st.error(f"Ошибка при получении ответа: {str(e)}")

@@ -50,7 +50,7 @@ class QdrantService:
         loader = Pdf2ImageLoader(str(file_path))
         documents = loader.load()
         
-        vector_store = QdrantVectorStore.from_documents(
+        await QdrantVectorStore.afrom_documents(
             documents,
             self.embeddings,
             collection_name=self.collection_name,
@@ -58,6 +58,7 @@ class QdrantService:
             api_key=config.QDRANT_API_KEY.get_secret_value()
         )
         self.list_documents.append(original_filename)
+
     def _get_list_documents(self) -> List[str]:
         unique_sources = set()
         offset = None
