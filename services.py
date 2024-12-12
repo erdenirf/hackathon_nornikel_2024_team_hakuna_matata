@@ -140,21 +140,6 @@ class RAGService:
         """
         return self.model.get_similarity_maps(query, image, pooling)
 
-    def plot_pooled_similarity_map(self, query: str, image: Image.Image, pooling: str = 'mean', figsize=(8, 8)):
-        """
-        Plot a pooled similarity map across all tokens.
-        
-        Args:
-            query (str): The query text
-            image (Image.Image): The input image
-            pooling (str): Pooling strategy ('mean' or 'max')
-            figsize (tuple): Figure size
-            
-        Returns:
-            tuple: (figure, axis) matplotlib objects
-        """
-        return self.model.plot_pooled_similarity_map(query, image, pooling, figsize)
-
     def _base64_to_image(self, base64_str: str) -> Image:
         """Конвертировать base64 в изображение"""
         if ',' in base64_str:
