@@ -332,6 +332,20 @@ class ColQwen2ForRAGLangchain:
         query_tokens = self.processor_retrieval.tokenizer.tokenize(query_content)
 
         return similarity_maps, query_tokens
+    
+    def plot_the_similarity_map(self, similarity_maps, image: Image.Image, figsize=(8, 8)):
+        """
+        Plot the similarity map.
+        """
+        from colpali_engine.interpretability import plot_similarity_map
+        
+        fig, ax = plot_similarity_map(
+            similarity_map=similarity_maps,
+            image=image,
+            figsize=figsize
+        )
+        
+        return fig, ax
 
     def plot_pooled_similarity_map(self, query: str, image: Image.Image, pooling: str = 'mean', figsize=(8, 8)):
         """

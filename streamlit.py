@@ -7,6 +7,18 @@ from services import RAGService
 
 rag_service = RAGService()
 
+def plot_the_similarity_map(similarity_maps, image: Image.Image, figsize=(8, 8)):
+    
+    from colpali_engine.interpretability import plot_similarity_map
+    
+    fig, ax = plot_similarity_map(
+        similarity_map=similarity_maps,
+        image=image,
+        figsize=figsize
+    )
+    
+    return fig, ax
+
 # API configuration
 API_BASE_URL = "http://localhost:8000"  # Adjust as needed
 HTTPX_TIMEOUT = 1800
@@ -150,7 +162,7 @@ if prompt := st.chat_input("Задайте вопрос..."):
                             pooled_maps, _ = rag_service.get_similarity_maps(prompt, image, pooling='mean')
 
                             # Или сразу построить визуализацию
-                            fig, ax = rag_service.plot_pooled_similarity_map(prompt, image, pooling='mean')
+                            fig, ax = plot_the_similarity_map(pooled_maps, image)
 
                             col1, col2 = st.columns(2)
                             with col1:
