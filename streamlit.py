@@ -3,10 +3,9 @@ import httpx
 import asyncio
 from functools import wraps
 from PIL import Image
+from colpali_engine.interpretability import plot_similarity_map
 
 def plot_the_similarity_map(similarity_maps, image: Image.Image, figsize=(8, 8)):
-    
-    from colpali_engine.interpretability import plot_similarity_map
     
     fig, ax = plot_similarity_map(
         similarity_map=similarity_maps,
