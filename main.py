@@ -6,10 +6,13 @@ import shutil
 from pathlib import Path
 import tempfile
 import logging
+import io
+import torch
+from fastapi.responses import Response
 
 logging.basicConfig(level=logging.INFO)
 
-from models import ChatRequest, ChatResponse
+from models import ChatRequest, ChatResponse, SimilarityMapsRequest
 from services import QdrantService, RAGService
 
 app = FastAPI(title="Норникель PDF Ассистент API")
@@ -82,4 +85,23 @@ async def chat(request: ChatRequest):
         return response
     except Exception as e:
         logging.info(f"Ошибка при генерации ответа: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/similarity_maps")
+async def similarity_maps(request: SimilarityMapsRequest):
+    """Получить схожесть между токенами запроса и изображением"""
+    try:
+        image = rag_service._base64_to_image(request.image)
+        similarity_maps, _ = rag_service.get_similarity_maps(request.query, image, request.pooling)
+        # Save to io.BytesIO buffer
+        buffer = io.BytesIO()
+        torch.save(similarity_maps, buffer)
+        buffer.seek(0)
+        # Return a Response object with proper content type
+        return Response(
+            content=buffer.getvalue(),
+            media_type="application/octet-stream"
+        )
+    except Exception as e:
+        logging.info(f"Ошибка при получении схожести: {e}")
         raise HTTPException(status_code=400, detail=str(e))

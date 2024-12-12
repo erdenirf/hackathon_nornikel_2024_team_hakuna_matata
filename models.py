@@ -9,3 +9,8 @@ class ChatResponse(BaseModel):
     context_images: List[str]  # base64 encoded images
     sources: List[str]
     pages: List[int]
+
+class SimilarityMapsRequest(BaseModel):
+    query: str
+    image: str
+    pooling: str = 'mean'

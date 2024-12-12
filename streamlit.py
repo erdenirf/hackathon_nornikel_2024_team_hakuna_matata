@@ -3,9 +3,6 @@ import httpx
 import asyncio
 from functools import wraps
 from PIL import Image
-from services import RAGService
-
-rag_service = RAGService()
 
 def plot_the_similarity_map(similarity_maps, image: Image.Image, figsize=(8, 8)):
     
@@ -18,6 +15,24 @@ def plot_the_similarity_map(similarity_maps, image: Image.Image, figsize=(8, 8))
     )
     
     return fig, ax
+
+async def get_similarity_maps(query: str, image_base64: str) -> dict:
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+        response = await client.post(
+            f"{API_BASE_URL}/similarity_maps",
+            json={
+                "query": query,
+                "image": image_base64,
+                "pooling": "mean"
+            }
+        )
+        response.raise_for_status()
+        # Преобразуем бинарный ответ в тензор
+        import io
+        import torch
+        buffer = io.BytesIO(response.content)
+        similarity_maps = torch.load(buffer)
+        return similarity_maps
 
 # API configuration
 API_BASE_URL = "http://localhost:8000"  # Adjust as needed
@@ -159,7 +174,7 @@ if prompt := st.chat_input("Задайте вопрос..."):
                             image = base64_to_image(img_data)
 
                             # Получить усредненную карту схожести по всем токенам
-                            pooled_maps, _ = rag_service.get_similarity_maps(prompt, image, pooling='mean')
+                            pooled_maps = async_to_sync(get_similarity_maps)(prompt, img_data)
 
                             # Или сразу построить визуализацию
                             fig, ax = plot_the_similarity_map(pooled_maps, image)
