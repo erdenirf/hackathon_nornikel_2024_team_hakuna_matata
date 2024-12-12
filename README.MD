@@ -78,5 +78,5 @@ streamlit run streamlit.py
 
 - Python 3.10+
 - CUDA-совместимая видеокарта (для оптимальной производительности)
-- 6gb GPU памяти для RAG
-- 14gb GPU памяти для RAG+LLM на Qwen2-VL
+- 5.1 GB GPU памяти для RAG
+- 25.6 GB GPU памяти для RAG+LLM на Qwen2-VL

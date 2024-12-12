@@ -7,7 +7,7 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-colpali-engine = "0.3.1"
+colpali-engine = {extras = ["interpretability"], version = "^0.3.4"}
 langchain-core = "^0.3.22"
 langchain-qdrant = "^0.2.0"
 pydantic-settings = "^2.6.1"

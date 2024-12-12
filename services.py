@@ -122,6 +122,38 @@ class RAGService:
             sources=sources,
             pages=pages
         )
+    
+    def get_similarity_maps(self, query: str, image: Image.Image, pooling: str = 'none'):
+        """
+        Generate similarity maps between query tokens and image patches.
+        
+        Args:
+            query (str): The query text
+            image (Image.Image): The input image
+            pooling (str): Pooling strategy ('none', 'mean', 'max')
+            
+        Returns:
+            tuple: Contains:
+                - similarity_maps: Tensor of shape (query_length, n_patches_x, n_patches_y) if pooling='none'
+                                or (n_patches_x, n_patches_y) if pooling='mean'/'max'
+                - query_tokens: List of tokenized query terms
+        """
+        return self.model.get_similarity_maps(query, image, pooling)
+
+    def plot_pooled_similarity_map(self, query: str, image: Image.Image, pooling: str = 'mean', figsize=(8, 8)):
+        """
+        Plot a pooled similarity map across all tokens.
+        
+        Args:
+            query (str): The query text
+            image (Image.Image): The input image
+            pooling (str): Pooling strategy ('mean' or 'max')
+            figsize (tuple): Figure size
+            
+        Returns:
+            tuple: (figure, axis) matplotlib objects
+        """
+        return self.model.plot_pooled_similarity_map(query, image, pooling, figsize)
 
     def _base64_to_image(self, base64_str: str) -> Image:
         """Конвертировать base64 в изображение"""

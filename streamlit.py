@@ -3,6 +3,9 @@ import httpx
 import asyncio
 from functools import wraps
 from PIL import Image
+from services import RAGService
+
+rag_service = RAGService()
 
 # API configuration
 API_BASE_URL = "http://localhost:8000"  # Adjust as needed
@@ -142,7 +145,18 @@ if prompt := st.chat_input("Задайте вопрос..."):
                     for index, img_data in enumerate(chat_response["context_images"]):
                         try:
                             image = base64_to_image(img_data)
-                            st.image(image, caption=f"{chat_response['sources'][index]} / {chat_response['pages'][index]} стр.")
+
+                            # Получить усредненную карту схожести по всем токенам
+                            pooled_maps, _ = rag_service.get_similarity_maps(prompt, image, pooling='mean')
+
+                            # Или сразу построить визуализацию
+                            fig, ax = rag_service.plot_pooled_similarity_map(prompt, image, pooling='mean')
+
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.image(image, caption=f"{chat_response['sources'][index]} / {chat_response['pages'][index]} стр.")
+                            with col2:
+                                st.pyplot(fig)
                         except Exception as img_error:
                             print(f"Error processing image: {str(img_error)}")
                             st.error(f"Ошибка при обработке изображения: {str(img_error)}")

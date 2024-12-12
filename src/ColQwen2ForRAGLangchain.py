@@ -267,3 +267,92 @@ class ColQwen2ForRAGLangchain:
                 return Image.open(BytesIO(img_data))
             except Exception:
                 raise ValueError(f"Ошибка обработки изображения. Введите изображение в формате base64. Ваш ввод: {text}")
+
+    def get_similarity_maps(self, query: str, image: Image.Image, pooling: str = 'none'):
+        """
+        Generate similarity maps between query tokens and image patches.
+        
+        Args:
+            query (str): The query text
+            image (Image.Image): The input image
+            pooling (str): Pooling strategy ('none', 'mean', 'max')
+            
+        Returns:
+            tuple: Contains:
+                - similarity_maps: Tensor of shape (query_length, n_patches_x, n_patches_y) if pooling='none'
+                                or (n_patches_x, n_patches_y) if pooling='mean'/'max'
+                - query_tokens: List of tokenized query terms
+        """
+        import torch
+        from colpali_engine.interpretability import get_similarity_maps_from_embeddings
+        
+        # Preprocess inputs
+        batch_images = self.processor_retrieval.process_images([image]).to(self.device)
+        batch_queries = self.processor_retrieval.process_queries([query]).to(self.device)
+
+        # Enable retrieval mode for embeddings
+        self.model.enable_retrieval()
+        
+        # Forward passes
+        with torch.no_grad():
+            image_embeddings = self.model.forward(**batch_images)
+            query_embeddings = self.model.forward(**batch_queries)
+
+        # Get number of image patches
+        n_patches = self.processor_retrieval.get_n_patches(
+            image_size=image.size,
+            patch_size=self.model.patch_size,
+            spatial_merge_size=self.model.spatial_merge_size,
+        )
+
+        # Get image mask
+        image_mask = self.processor_retrieval.get_image_mask(batch_images)
+
+        # Generate similarity maps
+        batched_similarity_maps = get_similarity_maps_from_embeddings(
+            image_embeddings=image_embeddings,
+            query_embeddings=query_embeddings,
+            n_patches=n_patches,
+            image_mask=image_mask,
+        )
+
+        # Get similarity maps for the input image
+        similarity_maps = batched_similarity_maps[0]
+
+        # Apply pooling if requested
+        if pooling == 'mean':
+            similarity_maps = torch.mean(similarity_maps, dim=0)  # Average across tokens
+        elif pooling == 'max':
+            similarity_maps = torch.max(similarity_maps, dim=0)[0]  # Max across tokens
+
+        # Get query tokens
+        query_content = self.processor_retrieval.decode(batch_queries.input_ids[0])
+        query_content = query_content.replace(self.processor_retrieval.tokenizer.pad_token, "")
+        query_content = query_content.replace(self.processor_retrieval.query_augmentation_token, "").strip()
+        query_tokens = self.processor_retrieval.tokenizer.tokenize(query_content)
+
+        return similarity_maps, query_tokens
+
+    def plot_pooled_similarity_map(self, query: str, image: Image.Image, pooling: str = 'mean', figsize=(8, 8)):
+        """
+        Plot a pooled similarity map across all tokens.
+        
+        Args:
+            query (str): The query text
+            image (Image.Image): The input image
+            pooling (str): Pooling strategy ('mean' or 'max')
+            figsize (tuple): Figure size
+            
+        Returns:
+            tuple: (figure, axis) matplotlib objects
+        """
+        from colpali_engine.interpretability import plot_similarity_map
+        similarity_maps, _ = self.get_similarity_maps(query, image, pooling=pooling)
+        
+        fig, ax = plot_similarity_map(
+            similarity_map=similarity_maps,
+            image=image,
+            figsize=figsize
+        )
+        
+        return fig, ax
