@@ -94,7 +94,7 @@ class RAGService:
         self.embeddings = self.model.ImageEmbeddings
         self.collection_name = config.QDRANT_COLLECTION_NAME.get_secret_value()
 
-    async def retrieve_context(self, message: str) -> RetrievalResponse:
+    async def retrieve_context(self, message: str, top_k: int = 5) -> RetrievalResponse:
         """Получить контекст для ответа"""
         vector_store = QdrantVectorStore.from_existing_collection(
             collection_name=self.collection_name,
@@ -105,7 +105,7 @@ class RAGService:
 
         results = vector_store.similarity_search_by_vector(
             self.model.TextEmbeddings.embed_query(message),
-            k=5
+            k=top_k
         )
 
         return RetrievalResponse(

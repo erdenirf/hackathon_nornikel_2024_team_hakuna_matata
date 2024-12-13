@@ -10,6 +10,7 @@ class ChatResponse(BaseModel):
 
 class RetrievalRequest(BaseModel):
     message: str
+    top_k: int = 5
 
 class RetrievalResponse(BaseModel):
     context_images: List[str]  # base64 encoded images

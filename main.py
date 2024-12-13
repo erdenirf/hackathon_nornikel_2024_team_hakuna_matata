@@ -81,7 +81,7 @@ async def upload_document(file: UploadFile):
 async def retrieve_context(request: RetrievalRequest):
     """Получить контекст для ответа"""
     try:
-        response = await rag_service.retrieve_context(request.message)
+        response = await rag_service.retrieve_context(request.message, request.top_k)
         return response
     except Exception as e:
         logging.info(f"Ошибка при получении контекста: {e}")

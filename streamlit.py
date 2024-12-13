@@ -79,11 +79,11 @@ async def chat_request(message: str, base64_image: str) -> dict:
             print(f"Unexpected error in chat_request: {str(e)}")
             raise
 
-async def retrieve_context(message: str) -> dict:
+async def retrieve_context(message: str, top_k: int) -> dict:
     async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         response = await client.post(
             f"{API_BASE_URL}/retrieve_context",
-            json={"message": message}
+            json={"message": message, "top_k": top_k}
         )
         response.raise_for_status()
         return response.json()
@@ -109,8 +109,11 @@ st.title("Норникель PDF Ассистент")
 # Sidebar with file operations
 with st.sidebar:
     st.header("Генерация ответа от Qwen2-VL")
-    st.write("Вы можете использовать эту функцию для генерации ответа от Qwen2-VL. Это потребует дополнительно 20 Гб видеопамяти на вашем GPU.")
+    st.write("Потребует дополнительно 20 GB видеопамяти на вашем GPU.")
     on_vlm_generation = st.toggle("Включить генерацию ответа от Qwen2-VL", value=True)
+
+    st.header("RAG параметр: top_k")
+    top_k = st.slider("top_k", min_value=1, max_value=25, value=5)
     
     st.header("Управление документами")
     
@@ -176,7 +179,7 @@ if prompt := st.chat_input("Задайте вопрос..."):
     with st.chat_message("assistant"):
         with st.spinner("Думаю..."):
             try:
-                retriever_response = async_to_sync(retrieve_context)(prompt)
+                retriever_response = async_to_sync(retrieve_context)(prompt, top_k)
                 
                 # Display images if present
                 if "context_images" in retriever_response:
@@ -192,9 +195,10 @@ if prompt := st.chat_input("Задайте вопрос..."):
 
                             col1, col2 = st.columns(2)
                             with col1:
-                                st.image(image, caption=f"{retriever_response['sources'][index]} / {retriever_response['pages'][index]} стр.")
+                                st.image(image)
                             with col2:
                                 st.pyplot(fig)
+                            st.write(f"[{index+1}] {retriever_response['sources'][index]} / {retriever_response['pages'][index]} стр.")
                         except Exception as img_error:
                             print(f"Error processing image: {str(img_error)}")
                             st.error(f"Ошибка при обработке изображения: {str(img_error)}")
