@@ -29,6 +29,12 @@ Multimodal RAG pipeline with VLM (ColPali) - система для интелл�
 git clone git@github.com:erdenirf/hackathon_nornikel_2024_team_hakuna_matata.git
 ```
 
+2a. Установка через Docker:
+
+```bash
+docker build -t nornickel-pdf-assistant .
+```
+
 2. Установите зависимости с помощью Poetry:
 
 ```bash
@@ -43,6 +49,12 @@ QDRANT_COLLECTION_NAME=your_collection_name
 ```
 
 ## Запуск
+
+### Запуск через Docker
+
+```bash
+docker run --gpus all -p 8000:8000 -p 8501:8501 nornickel-pdf-assistant
+```
 
 ### Backend API
 
@@ -62,6 +74,8 @@ streamlit run streamlit.py
 - `POST /documents/upload` - Загрузить и проиндексировать PDF документ
 - `DELETE /documents/{filename}` - Удалить документ из индекса
 - `POST /chat` - Получить ответ от RAG системы
+- `POST /retrieve_context` - Получить контекст для ответа
+- `POST /similarity_maps` - Получить схожести между документами
 
 ## Лицензия
 
