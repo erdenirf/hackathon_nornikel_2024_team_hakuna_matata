@@ -11,6 +11,8 @@ Multimodal RAG pipeline with VLM (ColPali) - система для интелл�
 - Осуществлять семантический поиск по содержимому
 - Генерировать ответы на вопросы с учетом визуального контекста
 
+![Demo](img/streamlit.gif)
+
 ## Технологии
 
 - FastAPI
@@ -21,19 +23,29 @@ Multimodal RAG pipeline with VLM (ColPali) - система для интелл�
 - PyTorch
 - pdf2image (poppler-utils)
 
-## Установка
+## Требования к системе
 
-1. Клонируйте репозиторий:
+- Python 3.10+
+- CUDA-совместимая видеокарта (для оптимальной производительности)
+- 7.8 GB GPU памяти для RAG
+- 25.8 GB GPU памяти для RAG+LLM на Qwen2-VL
 
-```bash
-git clone git@github.com:erdenirf/hackathon_nornikel_2024_team_hakuna_matata.git
+## Переменные окружения в .env
+
+Создайте файл `.env` в корневой директории и добавьте необходимые переменные окружения:
+```
+QDRANT_API_KEY=your_api_key
+QDRANT_URL=your_qdrant_url
+QDRANT_COLLECTION_NAME=your_collection_name
 ```
 
-2a. Установка через Docker:
+## Установка через Docker:
 
 ```bash
 docker build -t nornickel-pdf-assistant .
 ```
+
+## Установка без Docker
 
 2. Установите зависимости с помощью Poetry:
 
@@ -41,20 +53,15 @@ docker build -t nornickel-pdf-assistant .
 poetry install
 ```
 
-3. Создайте файл `.env` в корневой директории и добавьте необходимые переменные окружения:
-```
-QDRANT_API_KEY=your_api_key
-QDRANT_URL=your_qdrant_url
-QDRANT_COLLECTION_NAME=your_collection_name
-```
 
-## Запуск
 
-### Запуск через Docker
+## Запуск через Docker
 
 ```bash
 docker run --gpus all -p 8000:8000 -p 8501:8501 nornickel-pdf-assistant
 ```
+
+## Запуск без Docker
 
 ### Backend API
 
@@ -77,6 +84,8 @@ streamlit run streamlit.py
 - `POST /retrieve_context` - Получить контекст для ответа
 - `POST /similarity_maps` - Получить схожести между документами
 
+![FastAPI](img/fastapi.gif)
+
 ## Лицензия
 
 [MIT License](LICENSE.MD)
@@ -88,9 +97,8 @@ streamlit run streamlit.py
 - Safina Gulyamova
 - Nikita Mazein
 
-## Требования к системе
+## Qdrant index
 
-- Python 3.10+
-- CUDA-совместимая видеокарта (для оптимальной производительности)
-- 7.8 GB GPU памяти для RAG
-- 25.8 GB GPU памяти для RAG+LLM на Qwen2-VL
+Эмбеддинги изображений хранятся в Qdrant. В **page_content** хранится её base64. В метаднных хранятся **source, page**.
+
+![FastAPI](img/qdrant.gif)
