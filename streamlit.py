@@ -108,6 +108,10 @@ st.title("Норникель PDF Ассистент")
 
 # Sidebar with file operations
 with st.sidebar:
+    st.header("Генерация ответа от Qwen2-VL")
+    st.write("Вы можете использовать эту функцию для генерации ответа от Qwen2-VL. Это потребует дополнительно 20 Гб видеопамяти на вашем GPU.")
+    on_vlm_generation = st.toggle("Включить генерацию ответа от Qwen2-VL", value=True)
+    
     st.header("Управление документами")
     
     # Upload PDF
@@ -194,6 +198,18 @@ if prompt := st.chat_input("Задайте вопрос..."):
                         except Exception as img_error:
                             print(f"Error processing image: {str(img_error)}")
                             st.error(f"Ошибка при обработке изображения: {str(img_error)}")
+
+                    if on_vlm_generation:
+                        chat_response = async_to_sync(chat_request)(prompt, retriever_response["context_images"][0])
+                        # Display text response
+                        st.write(chat_response["response"])
+                        
+                        # Add assistant response to chat history
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": chat_response["response"],
+                            "images": chat_response.get("context_images", [])  # Changed from 'images' to 'context_images'
+                        })
                 
             except Exception as e:
                 print(f"Full error details: {str(e)}")  # Debug print
