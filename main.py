@@ -34,7 +34,7 @@ async def get_indexed_documents():
     try:
         return await qdrant_service.get_all_documents()
     except Exception as e:
-        logging.info(f"Ошибка при получении списка документов: {e}")
+        logging.error(f"Ошибка при получении списка документов: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.delete("/documents/{filename}")
@@ -46,7 +46,7 @@ async def delete_document(filename: str):
             return JSONResponse(content={"message": f"Документ {filename} не найден в индексе"}, status_code=404)
         return JSONResponse(content={"message": f"Документ {filename} успешно удален"})
     except Exception as e:
-        logging.info(f"Ошибка при удалении документа: {e}")
+        logging.error(f"Ошибка при удалении документа: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/documents/upload")
@@ -74,7 +74,7 @@ async def upload_document(file: UploadFile):
             return JSONResponse(content={"message": f"Файл {file.filename} успешно загружен и проиндексирован"})
     
     except Exception as e:
-        logging.info(f"Ошибка при загрузке файла: {e}")
+        logging.error(f"Ошибка при загрузке файла: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/retrieve_context", response_model=RetrievalResponse)
@@ -84,7 +84,7 @@ async def retrieve_context(request: RetrievalRequest):
         response = await rag_service.retrieve_context(request.message, request.top_k)
         return response
     except Exception as e:
-        logging.info(f"Ошибка при получении контекста: {e}")
+        logging.error(f"Ошибка при получении контекста: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/chat", response_model=ChatResponse)
@@ -94,7 +94,7 @@ async def chat(request: ChatRequest):
         response = await rag_service.generate_response(request.message, request.base64_image)
         return response
     except Exception as e:
-        logging.info(f"Ошибка при генерации ответа: {e}")
+        logging.error(f"Ошибка при генерации ответа: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/similarity_maps")
@@ -113,5 +113,5 @@ async def similarity_maps(request: SimilarityMapsRequest):
             media_type="application/octet-stream"
         )
     except Exception as e:
-        logging.info(f"Ошибка при получении схожести: {e}")
+        logging.error(f"Ошибка при получении схожести: {e}")
         raise HTTPException(status_code=400, detail=str(e))

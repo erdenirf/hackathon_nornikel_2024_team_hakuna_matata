@@ -4,6 +4,9 @@ import asyncio
 from functools import wraps
 from PIL import Image
 from colpali_engine.interpretability import plot_similarity_map
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 def plot_the_similarity_map(similarity_maps, image: Image.Image, figsize=(8, 8)):
     
@@ -73,10 +76,10 @@ async def chat_request(message: str, base64_image: str) -> dict:
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
-            print(f"HTTP Error: {e.response.status_code} - {e.response.text}")
+            logging.error(f"HTTP Error: {e.response.status_code} - {e.response.text}")
             raise
         except Exception as e:
-            print(f"Unexpected error in chat_request: {str(e)}")
+            logging.error(f"Unexpected error in chat_request: {str(e)}")
             raise
 
 async def retrieve_context(message: str, top_k: int) -> dict:
@@ -200,7 +203,7 @@ if prompt := st.chat_input("Задайте вопрос..."):
                                 st.pyplot(fig)
                             st.write(f"[{index+1}] {retriever_response['sources'][index]} / {retriever_response['pages'][index]} стр.")
                         except Exception as img_error:
-                            print(f"Error processing image: {str(img_error)}")
+                            logging.error(f"Error processing image: {str(img_error)}")
                             st.error(f"Ошибка при обработке изображения: {str(img_error)}")
 
                     if on_vlm_generation:
@@ -216,5 +219,5 @@ if prompt := st.chat_input("Задайте вопрос..."):
                         })
                 
             except Exception as e:
-                print(f"Full error details: {str(e)}")  # Debug print
+                logging.error(f"Full error details: {str(e)}")
                 st.error(f"Ошибка при получении ответа: {str(e)}")
