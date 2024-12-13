@@ -12,7 +12,7 @@ from fastapi.responses import Response
 
 logging.basicConfig(level=logging.INFO)
 
-from models import ChatRequest, ChatResponse, SimilarityMapsRequest
+from models import ChatRequest, ChatResponse, SimilarityMapsRequest, RetrievalResponse, RetrievalRequest
 from services import QdrantService, RAGService
 
 app = FastAPI(title="Норникель PDF Ассистент API")
@@ -77,11 +77,21 @@ async def upload_document(file: UploadFile):
         logging.info(f"Ошибка при загрузке файла: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/retrieve_context", response_model=RetrievalResponse)
+async def retrieve_context(request: RetrievalRequest):
+    """Получить контекст для ответа"""
+    try:
+        response = await rag_service.retrieve_context(request.message)
+        return response
+    except Exception as e:
+        logging.info(f"Ошибка при получении контекста: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """Получить ответ от RAG системы"""
     try:
-        response = await rag_service.generate_response(request.message)
+        response = await rag_service.generate_response(request.message, request.base64_image)
         return response
     except Exception as e:
         logging.info(f"Ошибка при генерации ответа: {e}")

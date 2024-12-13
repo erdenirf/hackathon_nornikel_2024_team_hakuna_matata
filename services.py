@@ -9,7 +9,7 @@ from src.ColQwen2ForRAGLangchain import ColQwen2ForRAGLangchain
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import models, QdrantClient
 from src.pdf2image_loader import Pdf2ImageLoader
-from models import ChatResponse  # Добавляем импорт моделей
+from models import ChatResponse, RetrievalResponse  # Добавляем импорт моделей
 
 SUPER_MODEL = ColQwen2ForRAGLangchain()
 
@@ -94,8 +94,8 @@ class RAGService:
         self.embeddings = self.model.ImageEmbeddings
         self.collection_name = config.QDRANT_COLLECTION_NAME.get_secret_value()
 
-    async def generate_response(self, message: str) -> ChatResponse:
-        """Сгенерировать ответ на основе контекста"""
+    async def retrieve_context(self, message: str) -> RetrievalResponse:
+        """Получить контекст для ответа"""
         vector_store = QdrantVectorStore.from_existing_collection(
             collection_name=self.collection_name,
             embedding=self.embeddings,
@@ -108,19 +108,20 @@ class RAGService:
             k=5
         )
 
-        # Получаем изображения и метаданные
-        images = [result.page_content for result in results]  # Предполагается, что это base64
-        sources = [result.metadata['source'] for result in results]
-        pages = [result.metadata['page'] for result in results]
+        return RetrievalResponse(
+            context_images=[result.page_content for result in results], # Предполагается, что это base64
+            sources=[result.metadata['source'] for result in results],
+            pages=[result.metadata['page'] for result in results]
+        )
+
+    async def generate_response(self, message: str, base64_image: str) -> ChatResponse:
+        """Сгенерировать ответ на основе контекста"""
 
         # Генерируем ответ
-        response = self.model.generate(message, image=self._base64_to_image(images[0]))[0]
+        response = self.model.generate(message, image=self._base64_to_image(base64_image))[0]
 
         return ChatResponse(
-            response=response,
-            context_images=images,
-            sources=sources,
-            pages=pages
+            response=response
         )
     
     def get_similarity_maps(self, query: str, image: Image.Image, pooling: str = 'none'):

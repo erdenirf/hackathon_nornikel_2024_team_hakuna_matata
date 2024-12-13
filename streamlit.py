@@ -63,12 +63,12 @@ async def delete_document(filename: str) -> dict:
         response.raise_for_status()
         return response.json()
 
-async def chat_request(message: str) -> dict:
+async def chat_request(message: str, base64_image: str) -> dict:
     async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
         try:
             response = await client.post(
                 f"{API_BASE_URL}/chat",
-                json={"message": message}
+                json={"message": message, "base64_image": base64_image}
             )
             response.raise_for_status()
             return response.json()
@@ -78,6 +78,15 @@ async def chat_request(message: str) -> dict:
         except Exception as e:
             print(f"Unexpected error in chat_request: {str(e)}")
             raise
+
+async def retrieve_context(message: str) -> dict:
+    async with httpx.AsyncClient(timeout=HTTPX_TIMEOUT) as client:
+        response = await client.post(
+            f"{API_BASE_URL}/retrieve_context",
+            json={"message": message}
+        )
+        response.raise_for_status()
+        return response.json()
     
 def base64_to_image(text: str) -> Image.Image:
     try:
@@ -163,12 +172,11 @@ if prompt := st.chat_input("Задайте вопрос..."):
     with st.chat_message("assistant"):
         with st.spinner("Думаю..."):
             try:
-                chat_response = async_to_sync(chat_request)(prompt)
-                print(f"Received response: {chat_response}")  # Debug print
+                retriever_response = async_to_sync(retrieve_context)(prompt)
                 
                 # Display images if present
-                if "context_images" in chat_response:
-                    for index, img_data in enumerate(chat_response["context_images"]):
+                if "context_images" in retriever_response:
+                    for index, img_data in enumerate(retriever_response["context_images"]):
                         try:
                             image = base64_to_image(img_data)
 
@@ -180,22 +188,13 @@ if prompt := st.chat_input("Задайте вопрос..."):
 
                             col1, col2 = st.columns(2)
                             with col1:
-                                st.image(image, caption=f"{chat_response['sources'][index]} / {chat_response['pages'][index]} стр.")
+                                st.image(image, caption=f"{retriever_response['sources'][index]} / {retriever_response['pages'][index]} стр.")
                             with col2:
                                 st.pyplot(fig)
                         except Exception as img_error:
                             print(f"Error processing image: {str(img_error)}")
                             st.error(f"Ошибка при обработке изображения: {str(img_error)}")
                 
-                # Display text response
-                st.write(chat_response["response"])
-                
-                # Add assistant response to chat history
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": chat_response["response"],
-                    "images": chat_response.get("context_images", [])  # Changed from 'images' to 'context_images'
-                })
             except Exception as e:
                 print(f"Full error details: {str(e)}")  # Debug print
                 st.error(f"Ошибка при получении ответа: {str(e)}")
