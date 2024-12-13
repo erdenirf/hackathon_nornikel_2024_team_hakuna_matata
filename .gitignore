@@ -5,3 +5,4 @@ notebooks/
 qdrant_data/
 nohup.out
 *.pdf
+research_ipynb/
