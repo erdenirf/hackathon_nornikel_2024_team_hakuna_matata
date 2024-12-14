@@ -99,6 +99,6 @@ streamlit run streamlit.py
 
 ## Qdrant index
 
-Эмбеддинги изображений хранятся в Qdrant. В **page_content** хранится её base64. В метаднных хранятся **source, page**.
+Эмбеддинги изображений хранятся в Qdrant. В **page_content** хранится её base64. В метаданных хранятся **source, page**.
 
 ![FastAPI](img/qdrant.gif)
